@@ -14,7 +14,7 @@
   3. ~~監督の自動の決まり~~ → 回答あり(「2-4」)。年間の回数もそろえるようにした。学年主任を外す・1日の上限回数は、まだ聞いていない。
   4. 実際のプリンタでの印刷(A3・A4)の出来。
 - その後、第5段階(点数の入力と集計)・第6段階(個票・成績一覧表・Excel 書き出し)に進む。
-- GitHub: https://github.com/soichiroteacher/exam-manager(**公開**。ユーザーの希望。GitHub Pages は `index.html` ができてから有効にする)。**公開なので、生徒・先生の実データは絶対にコミットしない。**
+- GitHub: https://github.com/soichiroteacher/exam-manager(**公開**。ユーザーの希望。GitHub Pages は 2026-09-27 に有効にした: https://soichiroteacher.github.io/exam-manager/ 。main に push すると1〜2分で反映。確認用で、先生方は校務共有サーバーのものを使う)。**公開なので、生徒・先生の実データは絶対にコミットしない。**
 - リンク集(`../index.html`)には、アプリができてから追加する。アプリ一覧(`../README.md`)には「作成中」として載せた。
 
 ## 1. ユーザーの要望(2026-09-27 に聞き取ったもの)
