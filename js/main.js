@@ -11,10 +11,12 @@ document.addEventListener('keydown', e=>{
 });
 $('bnSample').addEventListener('click', ()=>{
   state = makeSample(); fileHandle = null; isSample = true; editing = false; dirty = false;
-  view.examId = state.exams[0].id;
+  view.examId = state.exams[state.exams.length-1].id;   // いちばん新しい回を開く
   renderAll();
   setStatus('見本を表示しています(「編集する」で入力も試せます。保存はされません)', 'saved');
 });
+
+$('otherLabels').innerHTML = CONFIG.otherLabels.map(l=>'<option value="'+esc(l)+'">').join('');
 
 async function boot(){
   renderAll();

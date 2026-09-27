@@ -21,6 +21,7 @@ const CONFIG = {
   defaultMinutes: 50,       // テスト時間の初期値(分)。教科ごとに回の画面で変えられる
   defaultMax: 100,          // 満点の初期値
   defaultExtendRate: 1.3,   // 時間延長の倍率の初期値(2026-09-27 ユーザーと確認)
+  defaultExtendPlus: 10,    // 「+〇分」で延長するときの分の初期値
   // 1日の時程のひな形(テストの日を追加したときに入る)。kind: 'test'=テストの時間 / 'other'=学活・休憩など
   defaultDaySlots: [
     { kind:'other', label:'朝の学活', start:'08:30', end:'08:45' },
@@ -29,6 +30,8 @@ const CONFIG = {
     { kind:'test',  start:'10:55' },
     { kind:'other', label:'帰りの学活', start:'11:55', end:'12:05' },
   ],
+  // 学活などの行の名前の候補(テストの前・間・あとに入るもの。自由に入力もできる)
+  otherLabels: ['朝の学活', '学活', '休憩', '給食', '清掃', '帰りの学活'],
   teacherKinds: ['教員', 'サポーター'],
   leaveKinds: ['休暇', '出張', 'その他'],                          // 休暇の集約で使う印
   statusKinds: ['受験', '欠席', '別室で受験', '遅刻', '保健室', '早退'], // 当日の受験状態

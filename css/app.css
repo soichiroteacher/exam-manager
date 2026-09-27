@@ -148,3 +148,6 @@ table.proctor td.leave select{ color:var(--warn); }
 table.grid td.small-cell{ font-size:13px; }
 table.grid td.ok-cell{ color:var(--ok); text-align:center; }
 table.subj tr.off-row th, table.subj tr.off-row td{ background:#f3f3f3; color:#888; }
+table.year th.cur, table.year td.cur{ background:#eef4fb; font-weight:bold; }
+.day-card h3{ font-size:15px; margin:14px 0 4px; }
+table.tt.sep td{ min-width:130px; }

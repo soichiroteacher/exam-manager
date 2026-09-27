@@ -8,7 +8,7 @@ function sortedSpecial(ex){
 function specialSummary(ex, p){
   const out = [];
   if(p.room) out.push('別室('+roomName(p.room)+')');
-  if(p.extend) out.push('時間延長 '+(Number(p.rate)||state.meta.extendRate)+'倍' + (Object.keys(p.minutes).length ? '(教科で変更あり)' : ''));
+  if(p.extend) out.push('時間延長 '+extLabel(p) + (Object.keys(p.minutes).length ? '(※教科で変更あり)' : ''));
   if(p.absentDays.length) out.push('欠席：'+ex.days.map((d,di)=>p.absentDays.includes(d.id) ? (d.date?fmtMD(d.date):(di+1)+'日目') : '').filter(Boolean).join('・'));
   return out.join('、');
 }
@@ -39,7 +39,10 @@ TABS.special = { render(){
     html += '<tr><td class="nowrap">'+st.grade+'年'+st.cls+'組'+st.no+'番</td><td class="nowrap"><b>'+esc(st.name)+'</b></td>'
       + '<td><select data-path="'+P+'.room"'+d+'>'+roomOpts(p.room)+'</select></td>'
       + '<td class="nowrap"><label><input type="checkbox" data-path="'+P+'.extend"'+(p.extend?' checked':'')+d+'> 延長</label>'
-      + (p.extend ? ' <input type="number" step="0.05" min="1" max="3" style="width:68px" data-path="'+P+'.rate" data-type="num" value="'+(p.rate==null?'':p.rate)+'" placeholder="'+state.meta.extendRate+'"'+d+'>倍'
+      + (p.extend ? ' <select data-path="'+P+'.extType"'+d+'><option value="rate"'+(p.extType!=='plus'?' selected':'')+'>倍率</option><option value="plus"'+(p.extType==='plus'?' selected':'')+'>分を足す</option></select>'
+        + (p.extType==='plus'
+          ? ' +<input type="number" min="0" max="120" style="width:60px" data-path="'+P+'.plus" data-type="num" value="'+(p.plus==null?'':p.plus)+'" placeholder="'+state.meta.extendPlus+'"'+d+'>分'
+          : ' <input type="number" step="0.05" min="1" max="3" style="width:64px" data-path="'+P+'.rate" data-type="num" value="'+(p.rate==null?'':p.rate)+'" placeholder="'+state.meta.extendRate+'"'+d+'>倍')
         + ' <button class="small" data-act="specialMinutes" data-i="'+i+'">教科ごとの時間'+(Object.keys(p.minutes).length?'(変更あり)':'')+'</button>' : '') + '</td>'
       + '<td class="nowrap">'+ex.days.map((day,di)=>'<label><input type="checkbox" data-act-absent="'+i+'" data-day="'+esc(day.id)+'"'+(p.absentDays.includes(day.id)?' checked':'')+d+'>'+(day.date?fmtMD(day.date):(di+1)+'日目')+'</label>').join(' ')+'</td>'
       + '<td><input type="text" style="width:260px" data-path="'+P+'.note" value="'+esc(p.note)+'" placeholder="例：保健室で受ける、拡大した問題用紙"'+d+'></td>'
@@ -58,7 +61,7 @@ TABS.special = { render(){
         if(!sid) return '<td class="off">―</td>';
         const key = p.studentId+'|'+t.slot.id, v = ex.status[key] || '';
         const plan = isAbsentDay(p, t.day) ? '欠席予定' : '';
-        return '<td'+(plan?' class="planned-absent"':'')+'><div class="hint">'+esc(subjectName(sid))+(p.extend?' 〜'+fmtT(specialEnd(ex,p,t.slot)):'')+(plan?' '+plan:'')+'</div>'
+        return '<td'+(plan?' class="planned-absent"':'')+'><div class="hint">'+esc(subjectName(sid))+((p.extend||p.room)?' '+specialRange(ex,p,t.slot):'')+(plan?' '+plan:'')+'</div>'
           + '<select data-path="ex.status.'+esc(key)+'" data-type="str-or-delete"'+d+'><option value=""></option>'+CONFIG.statusKinds.map(k=>'<option'+(k===v?' selected':'')+'>'+k+'</option>').join('')+'</select></td>';
       }).join('') + '</tr>';
     });
@@ -95,8 +98,8 @@ ACTIONS.specialMinutes = el=>{
   const ex = curExam(), p = ex.special[+el.dataset.i], st = studentById(p.studentId);
   const subs = state.subjects.filter(s=>examSubj(ex, s.id).on);
   $('fmTitle').textContent = studentLabel(st)+'　教科ごとの時間';
-  $('fmBody').innerHTML = '<p class="hint">空のままなら「テスト時間 × 倍率」になります。教科や本人の希望で変えるときだけ、分を入れてください。</p><table class="grid"><thead><tr><th>教科</th><th>テスト時間</th><th>延長(自動)</th><th>この生徒の時間</th></tr></thead><tbody>'
-    + subs.map(s=>{ const base = testMinutes(ex, s.id), auto = Math.ceil(base*(Number(p.rate)||state.meta.extendRate)-1e-9);
+  $('fmBody').innerHTML = '<p class="hint">空のままなら、上で選んだ決め方(「テスト時間 × 倍率」か「テスト時間 + 〇分」)になります。教科や本人の希望で変えるときだけ、分を入れてください。</p><table class="grid"><thead><tr><th>教科</th><th>テスト時間</th><th>延長(自動)</th><th>この生徒の時間</th></tr></thead><tbody>'
+    + subs.map(s=>{ const base = testMinutes(ex, s.id), auto = extMinutes(ex, { ...p, minutes:{} }, s.id);
       return '<tr><th class="l">'+esc(s.name)+'</th><td>'+base+'分</td><td>'+auto+'分</td><td><input type="number" min="1" max="300" style="width:80px" data-sid="'+esc(s.id)+'" value="'+(p.minutes[s.id]||'')+'"'+dis()+'> 分</td></tr>'; }).join('')
     + '</tbody></table>';
   formCallback = ()=>{

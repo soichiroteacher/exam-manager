@@ -69,9 +69,29 @@ function roomNeeded(ex, room, t){
 }
 // その時間のテストの教科(全学年共通なので1つ。Set で返すのは担当教科との照らし合わせに使うため)
 function subjectsInSlot(ex, slotId){ const s = subjAt(ex, slotId); return new Set(s ? [s] : []); }
+// 年間(この年度のほかの回)の監督回数。自動の割り当てで、この回の回数がそろったうえで、年間の回数もそろえるために使う
+// (2026-09-27 ユーザー:「テストごとに入る回数をできるだけ揃えるが、難しい場合でも年間で入る回数が同じになるように調整したい」)
+function yearCounts(exceptEx){
+  const c = new Map();
+  state.exams.forEach(x=>{ if(x!==exceptEx) proctorCounts(x).forEach((n,id)=>c.set(id, (c.get(id)||0)+n)); });
+  return c;
+}
+// その教室の、その時間の始まり(別室はずらした時刻)
+function roomStart(ex, r, t){ return r.sep ? sepStartOf(ex, r.roomId, t.slot) : tmin(t.slot.start); }
+// 同じ日の前の時間に別室で監督していて、延長の終わりが、この時間のその教室の始まりより遅いか
+// (別室の監督は延長の終わりまで続けて見るため、次の時間の監督に間に合わない)
+function busyFromPrev(ex, tid, t, r){
+  const prev = testSlots(ex).filter(x=>x.di===t.di && (tmin(x.slot.start)??0) < (tmin(t.slot.start)??0)).pop();
+  if(!prev) return null;
+  const pr = roomOfTeacher(ex, tid, prev.slot.id);
+  if(!pr || !pr.sep || (r && pr.key===r.key)) return null;
+  const e = sepRoomEnd(ex, pr, prev), st = r ? roomStart(ex, r, t) : tmin(t.slot.start);
+  return e!=null && st!=null && e > st ? { room:pr, end:e } : null;
+}
 function autoAssign(ex, onlyEmpty){
   const people = proctorPeople().filter(t=>!t.noProctor);
   const counts = new Map(people.map(t=>[t.id, 0]));
+  const year = yearCounts(ex);
   const rooms = roomsForProctor(), ts = testSlots(ex);
   if(onlyEmpty){ Object.values(ex.proctors).forEach(a=>a.forEach(id=>{ if(counts.has(id)) counts.set(id, counts.get(id)+1); })); }
   else ex.proctors = {};
@@ -89,12 +109,14 @@ function autoAssign(ex, onlyEmpty){
       let best = null, bestScore = Infinity;
       people.forEach((p, pi)=>{
         if(used.has(p.id) || leaveOf(ex, p.id, t.slot.id)) return;
-        let score = counts.get(p.id) * 10;
+        if(busyFromPrev(ex, p.id, t, r)) return;                          // 前の時間の別室の延長が終わっていない
+        let score = counts.get(p.id) * 10;                                 // この回の回数をそろえる(いちばん強い)
+        score += (year.get(p.id)||0) * 5;                                  // 年間の回数もそろえる(この回の1回分=10より小さくして、この回をそろえるほうを先にする)
         if(p.subjects.some(s=>subs.has(s))) score += 100;                  // 自分の教科の時間
         if(r.sep){ if(p.kind!=='サポーター') score += 30; }                 // 別室はサポーター優先
         else {
           if(p.kind==='サポーター') score += 60;                            // 教室は教員優先
-          if(p.grade && p.grade!==r.grade) score += 4;                     // 所属学年の教室を優先
+          if(p.grade && p.grade!==r.grade) score += 2;                     // 所属学年の教室を優先(年間の回数よりは弱く)
         }
         score += ((pi + k*7) % people.length) / (people.length*10);       // 同点のときに毎回同じ人にならないように少しずらす
         if(score < bestScore){ bestScore = score; best = p; }
@@ -126,6 +148,8 @@ function proctorCheck(ex){
       if(lv){ cell[key] = 'err'; list.push(where+'：'+p.name+'は'+lv+'です。'); }
       else if(p.subjects.some(s=>subs.has(s))){ cell[key] = cell[key]||'warn'; list.push(where+'：'+p.name+'は、担当教科のテストの時間です。'); }
       if(p.noProctor){ cell[key] = cell[key]||'warn'; list.push(where+'：'+p.name+'は「監督なし」にしている人です。'); }
+      const busy = busyFromPrev(ex, id, t, rs[0]);
+      if(busy){ cell[key] = 'err'; list.push(where+'：'+p.name+'は、前の時間の'+busy.room.name+'(時間延长)が'+fmtT(busy.end)+'まであり、'+rs[0].name+'の始まりに間に合いません。'); }
     });
   });
   return { cell, list };
@@ -159,10 +183,10 @@ TABS.proctor = { render(){
   if(!ts.length){ $('tab-proctor').innerHTML = html + '<div class="banner">「時間割」タブで、テストの時間を入れてください。</div>'; return; }
   const people = proctorPeople();
   if(!people.length){ $('tab-proctor').innerHTML = html + '<div class="banner">「設定」タブで、先生・サポーターを入れてください。</div>'; return; }
-  const chk = proctorCheck(ex), counts = proctorCounts(ex);
+  const chk = proctorCheck(ex), counts = proctorCounts(ex), year = yearCounts(ex);
   html += warningsHtml(chk.list);
   const rooms = roomsForProctor();
-  html += '<div class="scroll-x"><table class="grid proctor"><thead><tr><th rowspan="2">名前</th>'+h1+'<th rowspan="2">回数</th></tr><tr>'+h2+'</tr></thead><tbody>';
+  html += '<div class="scroll-x"><table class="grid proctor"><thead><tr><th rowspan="2">名前</th>'+h1+'<th rowspan="2">この回</th><th rowspan="2">年間</th></tr><tr>'+h2+'</tr></thead><tbody>';
   let lastKind = null;
   people.forEach(p=>{
     html += '<tr class="'+(p.kind==='サポーター'?'supporter':'')+(lastKind && lastKind!==p.kind?' sep':'')+'"><th class="l">'+esc(p.name)+(p.noProctor?' <span class="hint">(監督なし)</span>':'')+'</th>';
@@ -177,19 +201,26 @@ TABS.proctor = { render(){
       const cls = (chk.cell[p.id+'|'+t.slot.id]||'') + (lv && !cur ? ' leave' : '') + (cur ? ' has' : '');
       html += '<td class="'+cls+'"><select data-pt="'+esc(p.id+'|'+t.slot.id)+'"'+d+'>'+opts+'</select></td>';
     });
-    html += '<td class="c"><b>'+(counts.get(p.id)||0)+'</b></td></tr>';
+    html += '<td class="c"><b>'+(counts.get(p.id)||0)+'</b></td><td class="c">'+((counts.get(p.id)||0)+(year.get(p.id)||0))+'</td></tr>';
   });
   // 監督が決まっていない教室
   html += '<tr class="sep"><th class="l">決まっていない教室</th>' + ts.map(t=>{
     const empty = rooms.filter(r=>roomNeeded(ex, r, t) && !proctorsAt(ex, t.slot.id, r.key).length).map(r=>r.name);
     return '<td class="'+(empty.length?'warn':'ok-cell')+' small-cell">'+(empty.length ? esc(empty.join(' ')) : '✓')+'</td>';
-  }).join('') + '<td></td></tr>';
-  // 別室の時刻
+  }).join('') + '<td></td><td></td></tr>';
+  // 別室の時刻(ずらした始まり〜延長の終わり)
   sepRooms().forEach(r=>{
-    html += '<tr><th class="l">'+esc(r.name)+'の終わり</th>' + ts.map(t=>{ const e = sepRoomEnd(ex, r, t), n = roomStudentsAt(ex, r.roomId, t.day, t.slot).length;
-      return e!=null ? '<td class="small-cell">〜'+fmtT(e)+'('+n+'人)</td>' : '<td class="off">使わない</td>'; }).join('') + '<td></td></tr>';
+    html += '<tr><th class="l">'+esc(r.name)+'の時刻</th>' + ts.map(t=>{ const e = sepRoomEnd(ex, r, t), n = roomStudentsAt(ex, r.roomId, t.day, t.slot).length;
+      return e!=null ? '<td class="small-cell">'+fmtT(sepStartOf(ex, r.roomId, t.slot))+'〜'+fmtT(e)+'('+n+'人)</td>' : '<td class="off">使わない</td>'; }).join('') + '<td></td><td></td></tr>';
   });
   html += '</tbody></table></div>';
+  // 年間の監督回数(回ごと)
+  const per = state.exams.map(x=>proctorCounts(x));
+  html += '<section><h2>年間の監督回数</h2><p class="hint">この年度のテストの回ごとの回数と合計です。自動の案は、この回の回数をそろえたうえで、年間の回数の少ない人を優先します。</p>'
+    + '<div class="scroll-x"><table class="grid year"><thead><tr><th>名前</th>'+state.exams.map(x=>'<th'+(x===ex?' class="cur"':'')+'>'+esc(x.name)+'</th>').join('')+'<th>合計</th></tr></thead><tbody>'
+    + people.map(p=>{ const vals = per.map(c=>c.get(p.id)||0), tot = vals.reduce((a,b)=>a+b,0);
+      return '<tr'+(p.kind==='サポーター'?' class="supporter"':'')+'><th class="l">'+esc(p.name)+'</th>'+vals.map((v,i)=>'<td class="c'+(state.exams[i]===ex?' cur':'')+'">'+(v||'')+'</td>').join('')+'<td class="c"><b>'+tot+'</b></td></tr>'; }).join('')
+    + '</tbody></table></div></section>';
   $('tab-proctor').innerHTML = html;
 }};
 // ます目で教室を選んだとき: その時間にその先生が入っていた教室から外し、選んだ教室に入れる

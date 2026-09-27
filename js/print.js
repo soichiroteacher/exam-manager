@@ -145,7 +145,7 @@ BUILD.leave = (ex)=>{
 BUILD.proctor = (ex)=>{
   const ts = testSlots(ex), people = proctorPeople();
   if(!ts.length || !people.length) return [];
-  const counts = proctorCounts(ex);
+  const counts = proctorCounts(ex), year = yearCounts(ex);
   let h1 = '', h2 = '';
   ex.days.forEach((day, di)=>{
     const n = ts.filter(t=>t.di===di).length; if(!n) return;
@@ -163,27 +163,27 @@ BUILD.proctor = (ex)=>{
         const r = roomOfTeacher(ex, p.id, t.slot.id), lv = leaveOf(ex, p.id, t.slot.id);
         if(r) return '<td class="room'+(r.sep?' sep':'')+'">'+esc(r.name)+'</td>';
         return lv ? '<td class="leave">'+esc(lv)+'</td>' : '<td></td>';
-      }).join('') + '<td class="c">'+(counts.get(p.id)||'')+'</td></tr>';
+      }).join('') + '<td class="c">'+(counts.get(p.id)||'')+'</td><td class="c">'+(((counts.get(p.id)||0)+(year.get(p.id)||0))||'')+'</td></tr>';
     lastKind = p.kind;
   });
-  // 別室の終わりの時刻(延長を含む)
+  // 別室の時刻(ずらした始まり〜延長の終わり)
   sepRooms().forEach((r, k)=>{
-    body += '<tr class="sep-end'+(k===0?' first':'')+'"><th class="l">'+esc(r.name)+'の終わり</th>' + ts.map(t=>{
+    body += '<tr class="sep-end'+(k===0?' first':'')+'"><th class="l">'+esc(r.name)+'の時刻</th>' + ts.map(t=>{
       const e = sepRoomEnd(ex, r, t);
-      return e!=null ? '<td>〜'+fmtT(e)+'<span class="small">('+roomStudentsAt(ex, r.roomId, t.day, t.slot).length+'人)</span></td>' : '<td class="off">―</td>';
-    }).join('') + '<td></td></tr>';
+      return e!=null ? '<td>'+fmtT(sepStartOf(ex, r.roomId, t.slot))+'〜'+fmtT(e)+'<span class="small">('+roomStudentsAt(ex, r.roomId, t.day, t.slot).length+'人)</span></td>' : '<td class="off">―</td>';
+    }).join('') + '<td></td><td></td></tr>';
   });
   let html = pTitle(esc(ex.name)+'　試験監督表', schoolSub()+'　'+fmtJDate(todayYmd())+'作成')
-    + '<table class="p-table proctor-sheet"><thead><tr><th rowspan="2" class="name">名前</th>'+h1+'<th rowspan="2" class="cnt">回数</th></tr><tr>'+h2+'</tr></thead><tbody>'+body+'</tbody></table>'
+    + '<table class="p-table proctor-sheet"><thead><tr><th rowspan="2" class="name">名前</th>'+h1+'<th rowspan="2" class="cnt">この回</th><th rowspan="2" class="cnt">年間</th></tr><tr>'+h2+'</tr></thead><tbody>'+body+'</tbody></table>'
     + '<p class="small">※ ます目の「1-1」などは、その時間に監督に入る教室です。別室の監督は、時間延長の終わりの時刻まで続けて見てください。</p>';
   // 別室・時間延長の生徒の表
   const sps = sortedSpecial(ex).filter(x=>x.p.room || x.p.extend || x.p.absentDays.length);
   if(optOf('proctor','students',true) && sps.length){
     html += '<h2 class="p-h2">別室・時間延長・欠席予定の生徒</h2><table class="p-table sp-sheet"><thead><tr><th>生徒</th><th>場所</th><th>延長</th>'
       + ts.map(t=>'<th class="slot">'+(t.day.date?fmtMD(t.day.date):(t.di+1)+'日目')+'<br>'+esc(subjectName(subjAt(ex, t.slot.id))||t.label)+'</th>').join('')+'<th>配慮の内容</th></tr></thead><tbody>'
-      + sps.map(({p, st})=>'<tr><th class="l">'+st.grade+'-'+st.cls+'-'+st.no+' '+esc(st.name)+'</th><td>'+esc(p.room?roomName(p.room):'教室')+'</td><td>'+(p.extend?(Number(p.rate)||state.meta.extendRate)+'倍':'')+'</td>'
+      + sps.map(({p, st})=>'<tr><th class="l">'+st.grade+'-'+st.cls+'-'+st.no+' '+esc(st.name)+'</th><td>'+esc(p.room?roomName(p.room):'教室')+'</td><td>'+esc(extLabel(p))+'</td>'
         + ts.map(t=>{ if(isAbsentDay(p, t.day)) return '<td class="c">欠</td>'; if(!subjAt(ex, t.slot.id)) return '<td class="off"></td>';
-          return '<td class="c">〜'+fmtT(specialEnd(ex, p, t.slot))+'</td>'; }).join('')
+          return '<td class="c">'+specialRange(ex, p, t.slot)+'</td>'; }).join('')
         + '<td>'+esc(p.note)+'</td></tr>').join('') + '</tbody></table>';
   }
   return [{ html }];
@@ -224,7 +224,7 @@ BUILD.sepTime = (ex)=>{
         if(s.kind==='other') return '<tr class="other"><td colspan="2">'+esc(s.label)+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
         const sts = roomStudentsAt(ex, r.roomId, day, s), sid = subjAt(ex, s.id);
         if(!sts.length) return '<tr class="none"><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+esc(subjectName(sid))+'</td><td class="time">(この部屋では受けません)</td></tr>';
-        const st0 = tmin(s.start), base = slotEnd(ex, s);
+        const st0 = sepStartOf(ex, r.roomId, s), base = st0 + testMinutes(ex, sid);   // 別室だけ始まりをずらしていれば、その時刻から
         const ext = [...new Set(sts.filter(sp=>sp.extend).map(sp=>specialEnd(ex, sp, s)))].sort((a,b)=>a-b);
         const plain = sts.some(sp=>!sp.extend);
         // 延長の人だけ →「8:55 〜 10:05(時間延長)」、延長なしの人もいる →「8:55 〜 9:45」と「延長の人 〜10:05」
@@ -248,12 +248,12 @@ BUILD.special = (ex)=>{
   ex.days.forEach((day, di)=>{ const n = ts.filter(t=>t.di===di).length; if(n) h1 += '<th colspan="'+n+'">'+esc(dayTitle(ex, di))+'</th>'; });
   ts.forEach(t=>{ h2 += '<th class="slot">'+esc(t.label)+'<br><span class="small">'+fmtT(tmin(t.slot.start))+'〜</span></th>'; });
   const rows = list.map(({p, st})=>'<tr><th class="l nowrap">'+st.grade+'年'+st.cls+'組'+st.no+'番</th><th class="l name">'+esc(st.name)+'</th>'
-    + '<td>'+esc(p.room?roomName(p.room):'教室')+'</td><td class="c">'+(p.extend?(Number(p.rate)||state.meta.extendRate)+'倍':'')+'</td><td class="note">'+esc(p.note)+'</td>'
+    + '<td>'+esc(p.room?roomName(p.room):'教室')+'</td><td class="c">'+esc(extLabel(p))+'</td><td class="note">'+esc(p.note)+'</td>'
     + ts.map(t=>{
       if(isAbsentDay(p, t.day)) return '<td class="absent"><span class="pre">欠席予定</span>'+(fill?'<div class="st">'+esc(ex.status[p.studentId+'|'+t.slot.id]||'')+'</div>':'')+'</td>';
       const sid = subjAt(ex, t.slot.id);
       if(!sid) return '<td class="off"></td>';
-      return '<td><span class="pre">'+esc(subjectName(sid))+(p.extend?' 〜'+fmtT(specialEnd(ex, p, t.slot)):'')+'</span>'+(fill?'<div class="st">'+esc(ex.status[p.studentId+'|'+t.slot.id]||'')+'</div>':'')+'</td>';
+      return '<td><span class="pre">'+esc(subjectName(sid))+((p.extend||p.room)?' '+specialRange(ex, p, t.slot):'')+'</span>'+(fill?'<div class="st">'+esc(ex.status[p.studentId+'|'+t.slot.id]||'')+'</div>':'')+'</td>';
     }).join('') + '</tr>').join('');
   // 当日増えた生徒を書き足す空の行
   const blank = Array.from({length:3}).map(()=>'<tr class="blank"><th class="l nowrap">　</th><th class="l name"></th><td></td><td></td><td class="note"></td>'+ts.map(()=>'<td></td>').join('')+'</tr>').join('');

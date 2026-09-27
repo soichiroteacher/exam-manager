@@ -51,6 +51,7 @@ function emptyState(fy){
       grades: clone(CONFIG.defaultGrades),          // [{ grade:1, classes:4 }]
       rooms: [ { id:'r1', name:'別室1' } ],          // 別室(時間延長・別室受験の部屋)
       extendRate: CONFIG.defaultExtendRate,         // 時間延長の倍率の基本
+      extendPlus: CONFIG.defaultExtendPlus,         // 「+〇分」で延長するときの分の基本
       editPasswordHash: '',
       savedAt: null, savedBy: '',
     },
@@ -63,7 +64,7 @@ function emptyState(fy){
 }
 // テストの回を1つ作る
 function newExam(name){
-  const ex = { id:newId('x'), name, days:[], subjects:{}, schedule:{}, leave:{}, proctors:{}, special:[], status:{},
+  const ex = { id:newId('x'), name, days:[], subjects:{}, schedule:{}, leave:{}, proctors:{}, special:[], status:{}, sepStart:{},
     notice:{ title:CONFIG.defaultNoticeTitle, body:CONFIG.defaultNotice }, scores:{} };
   normalizeExam(ex);
   return ex;
@@ -86,6 +87,7 @@ function normalizeState(o){
   if(!Array.isArray(o.meta.rooms)) o.meta.rooms = [];
   o.meta.rooms = o.meta.rooms.filter(r=>r && r.id).map(r=>({ id:String(r.id), name:String(r.name||'') }));
   o.meta.extendRate = Number(o.meta.extendRate) || CONFIG.defaultExtendRate;
+  o.meta.extendPlus = Number(o.meta.extendPlus) >= 0 && o.meta.extendPlus!==null ? Number(o.meta.extendPlus) : CONFIG.defaultExtendPlus;
   if(!Array.isArray(o.subjects) || !o.subjects.length) o.subjects = base.subjects;
   o.subjects = o.subjects.filter(s=>s && s.id).map(s=>({ id:String(s.id), name:String(s.name||''), core5:!!s.core5 }));
   o.teachers = (Array.isArray(o.teachers)?o.teachers:[]).filter(t=>t && t.id).map(t=>Object.assign({ name:'', kind:'教員', grade:0, subjects:[], noProctor:false }, t));
@@ -120,8 +122,9 @@ function normalizeExam(ex){
     delete ex.schedule[k];
   });
   if(!Array.isArray(ex.special)) ex.special = [];
-  ex.special = ex.special.filter(p=>p && p.studentId).map(p=>Object.assign({ id:newId('p'), room:'', extend:false, rate:null, minutes:{}, absentDays:[], note:'' }, p));
-  ex.special.forEach(p=>{ if(!p.minutes || typeof p.minutes!=='object') p.minutes = {}; if(!Array.isArray(p.absentDays)) p.absentDays = []; });
+  ex.special = ex.special.filter(p=>p && p.studentId).map(p=>Object.assign({ id:newId('p'), room:'', extend:false, extType:'rate', rate:null, plus:null, minutes:{}, absentDays:[], note:'' }, p));
+  ex.special.forEach(p=>{ if(!p.minutes || typeof p.minutes!=='object') p.minutes = {}; if(!Array.isArray(p.absentDays)) p.absentDays = []; if(p.extType!=='plus') p.extType = 'rate'; });
+  if(!ex.sepStart || typeof ex.sepStart!=='object') ex.sepStart = {};   // 別室だけ始まりをずらす時刻 { '時間id|別室id': 'HH:MM' }
   if(!ex.notice || typeof ex.notice!=='object') ex.notice = { title:CONFIG.defaultNoticeTitle, body:CONFIG.defaultNotice };
   return ex;
 }
@@ -174,19 +177,37 @@ function slotEnd(ex, slot){
   if(!sid || st==null) return null;
   return st + testMinutes(ex, sid);
 }
-// 時間延長したときのテスト時間(分)。生徒・教科ごとに分を指定していればそれ、なければ 倍率 × テスト時間(切り上げ)
+// 時間延長したときのテスト時間(分)。延長の決め方は2通り(2026-09-27 ユーザー:「〇倍だけでなく、+〇分の場合もある」)
+//   extType 'rate' … テスト時間 × 倍率(分は切り上げ) / 'plus' … テスト時間 + 〇分
+// 生徒・教科ごとに分を指定していれば、それを優先する。
 function extMinutes(ex, sp, sid){
   const own = sp.minutes && Number(sp.minutes[sid]);
   if(own) return own;
+  const base = testMinutes(ex, sid);
+  if(sp.extType==='plus') return base + (Number(sp.plus)>=0 && sp.plus!=null && sp.plus!=='' ? Number(sp.plus) : state.meta.extendPlus);
   const rate = Number(sp.rate) || state.meta.extendRate;
-  return Math.ceil(testMinutes(ex, sid) * rate - 1e-9);
+  return Math.ceil(base * rate - 1e-9);
 }
-// 配慮の必要な生徒の、その時間の終わりの時刻(延長を含む)
+// 延長の決め方を短い文にする(「1.3倍」「+10分」)
+function extLabel(sp){
+  if(!sp.extend) return '';
+  const s = sp.extType==='plus' ? '+'+(sp.plus!=null && sp.plus!=='' ? Number(sp.plus) : state.meta.extendPlus)+'分' : (Number(sp.rate)||state.meta.extendRate)+'倍';
+  return s + (Object.keys(sp.minutes||{}).length ? '※' : '');
+}
+// 別室の、その時間の始まりの時刻(別室だけずらしたときはその時刻。2026-09-27 ユーザー:「始まりや終わりが変わる可能性は高い」)
+function sepStartOf(ex, roomId, slot){
+  const own = roomId ? tmin(ex.sepStart[slot.id+'|'+roomId]) : null;
+  return own!=null ? own : tmin(slot.start);
+}
+// 配慮の必要な生徒の、その時間の始まり・終わりの時刻(別室の始まり・延長を含む)
+function specialStart(ex, sp, slot){ return sp.room ? sepStartOf(ex, sp.room, slot) : tmin(slot.start); }
 function specialEnd(ex, sp, slot){
-  const sid = subjAt(ex, slot.id), s0 = tmin(slot.start);
+  const sid = subjAt(ex, slot.id), s0 = specialStart(ex, sp, slot);
   if(!sid || s0==null) return null;
   return s0 + (sp.extend ? extMinutes(ex, sp, sid) : testMinutes(ex, sid));
 }
+// 「10:20〜11:25」の形(別室・延長の生徒の時刻を見せるとき)
+function specialRange(ex, sp, slot){ const e = specialEnd(ex, sp, slot); return e==null ? '' : fmtT(specialStart(ex, sp, slot))+'〜'+fmtT(e); }
 function isAbsentDay(sp, day){ return sp.absentDays.includes(day.id); }
 // その時間に別室で受ける生徒(テストがあって、欠席の日でない人)
 function roomStudentsAt(ex, roomId, day, slot){

@@ -40,19 +40,32 @@ function makeSample(){
   ['s4','s5'].forEach((sid,i)=> ex.schedule[t2[i].id] = sid);
   // 時間延長(1.3倍)の生徒が次の時間にかからないよう、テストの間を長めにあけた時程
   t1[1].start = '10:10'; t1[2].start = '11:25';
-  const back1 = d1.slots[d1.slots.length-1]; back1.start = '12:40'; back1.end = '12:50';
-  t2[1].start = '10:20';
-  const back2 = d2.slots[d2.slots.length-1]; back2.start = '11:50'; back2.end = '12:00';
-  // 配慮の必要な生徒
+  // 1日目: テストのあとに給食と帰りの学活。2日目: 1時間目のあとに学活(学活などの行はどこにでも入れられる例)
+  const back1 = d1.slots.find(x=>x.label==="帰りの学活"); back1.start = "13:20"; back1.end = "13:30";
+  d1.slots.push({ id:newId('t'), kind:'other', label:'給食', start:'12:40', end:'13:15' });
+  d2.slots.push({ id:newId('t'), kind:'other', label:'学活', start:'10:15', end:'10:25' });
+  t2[1].start = '10:35';
+  const back2 = d2.slots.find(x=>x.label==="帰りの学活"); back2.start = "12:15"; back2.end = "12:25";
+  // 配慮の必要な生徒(延長は「倍率」と「分を足す」の両方の例)
   ex.special = [
-    { id:'p1', studentId:'st1_1_5', room:'r1', extend:true, rate:null, minutes:{}, absentDays:[], note:'問題用紙を拡大(A3)' },
-    { id:'p2', studentId:'st1_2_12', room:'r1', extend:false, rate:null, minutes:{}, absentDays:[], note:'別室で受ける' },
-    { id:'p3', studentId:'st2_3_8', room:'r1', extend:true, rate:1.5, minutes:{ s5:80 }, absentDays:[], note:'英語は本人の希望で80分' },
-    { id:'p4', studentId:'st3_1_20', room:'r2', extend:true, rate:null, minutes:{}, absentDays:[], note:'' },
-    { id:'p5', studentId:'st2_1_3', room:'', extend:false, rate:null, minutes:{}, absentDays:[d2.id], note:'2日目は通院のため欠席(追試)' },
+    { id:'p1', studentId:'st1_1_5', room:'r1', extend:true, extType:'rate', rate:null, minutes:{}, absentDays:[], note:'問題用紙を拡大(A3)' },
+    { id:'p2', studentId:'st1_2_12', room:'r1', extend:false, minutes:{}, absentDays:[], note:'別室で受ける' },
+    { id:'p3', studentId:'st2_3_8', room:'r1', extend:true, extType:'rate', rate:1.5, minutes:{ s5:80 }, absentDays:[], note:'英語は本人の希望で80分' },
+    { id:'p4', studentId:'st3_1_20', room:'r2', extend:true, extType:'plus', plus:10, minutes:{}, absentDays:[], note:'' },
+    { id:'p5', studentId:'st2_1_3', room:'', extend:false, minutes:{}, absentDays:[d2.id], note:'2日目は通院のため欠席(追試)' },
   ];
+  // 2日目の2時間目(英語)は、相談室だけ10分遅く始める(別室の始まりをずらす例)
+  ex.sepStart = { [t2[1].id+'|r1']:'10:45' };
   ex.leave = { ['m8|'+t1[0].id]:'出張', ['m8|'+t1[1].id]:'出張', ['m8|'+t1[2].id]:'出張', ['m12|'+t2[0].id]:'休暇', ['m12|'+t2[1].id]:'休暇', ['m23|'+t1[0].id]:'その他' };
-  s.exams = [ex];
+  // 年間の回数の例: 前の回(1学期期末)を、同じ時程で作って監督を割り当てておく
+  const prev = newExam('1学期期末テスト');
+  const pd = new Date(); pd.setMonth(pd.getMonth()-3);
+  prev.days = [d1, d2].map((dd, i)=>{ const x = new Date(pd); x.setDate(x.getDate()+i); return { id:newId('d'), date:ymd(x), slots: dd.slots.map(sl=>({ ...clone(sl), id:newId('t') })) }; });
+  state.subjects.forEach(sb=>{ prev.subjects[sb.id].on = ['s1','s2','s3','s4','s5'].includes(sb.id); });
+  const pt = testSlots(prev); ['s1','s3','s2','s4','s5'].forEach((sid,i)=>{ if(pt[i]) prev.schedule[pt[i].slot.id] = sid; });
+  prev.special = clone(ex.special).map(p=>({ ...p, absentDays:[] }));
+  s.exams = [prev, ex];
+  autoAssign(prev, false);
   autoAssign(ex, false);
   return s;
 }

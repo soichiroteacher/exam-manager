@@ -94,7 +94,7 @@ ACTIONS.delDay = el=>{
 // 時間を消したとき、その時間に結びついた記録(時間割・監督・休暇・受験状態)も消す
 function removeSlotsData(ex, slotIds){
   const ids = new Set(slotIds);
-  ['schedule','proctors','status'].forEach(k=> Object.keys(ex[k]).forEach(key=>{ if(ids.has(key.split('|')[0]) || ids.has(key.split('|')[1])) delete ex[k][key]; }));
+  ['schedule','proctors','status','sepStart'].forEach(k=> Object.keys(ex[k]).forEach(key=>{ if(ids.has(key.split('|')[0]) || ids.has(key.split('|')[1])) delete ex[k][key]; }));
   Object.keys(ex.leave).forEach(key=>{ if(ids.has(key.split('|')[1])) delete ex.leave[key]; });
 }
 
@@ -112,7 +112,7 @@ TABS.timetable = { render(){
       const p = 'ex.days.'+di+'.slots.'+i;
       const del = '<td class="edit-only"><button class="small danger" data-act="delSlot" data-d="'+di+'" data-i="'+i+'">削除</button></td>';
       if(s.kind==='other'){
-        html += '<tr class="other"><td>学活など</td><td><input type="text" style="width:120px" data-path="'+p+'.label" value="'+esc(s.label)+'" placeholder="例：朝の学活"'+d+'></td><td class="hint">―</td>'
+        html += '<tr class="other"><td>学活など</td><td><input type="text" style="width:120px" data-path="'+p+'.label" value="'+esc(s.label)+'" placeholder="例：朝の学活" list="otherLabels"'+d+'></td><td class="hint">―</td>'
           + '<td><input type="time" data-path="'+p+'.start" value="'+esc(s.start)+'"'+d+'></td><td><input type="time" data-path="'+p+'.end" value="'+esc(s.end)+'"'+d+'></td>' + del + '</tr>';
         return;
       }
@@ -123,7 +123,26 @@ TABS.timetable = { render(){
         + '<td><input type="time" data-path="'+p+'.start" value="'+esc(s.start)+'"'+d+'></td>'
         + '<td>'+(end!=null ? fmtT(end)+' <span class="hint">('+testMinutes(ex,cur)+'分)</span>' : '<span class="hint">教科を選ぶと出ます</span>')+'</td>' + del + '</tr>';
     });
-    html += '</tbody></table></div><div class="edit-only line"><button data-act="addSlot" data-d="'+di+'" data-kind="test">＋ テストの時間を追加</button> <button data-act="addSlot" data-d="'+di+'" data-kind="other">＋ 学活・休憩などを追加</button></div></section>';
+    html += '</tbody></table></div><div class="edit-only line"><button data-act="addSlot" data-d="'+di+'" data-kind="test">＋ テストの時間を追加</button> <button data-act="addSlot" data-d="'+di+'" data-kind="other">＋ 学活・給食などを追加</button>'
+      + ' <span class="hint">テストの間やあとの学活・給食・帰りの学活なども、時刻を入れれば、その順に並びます。</span></div>';
+    // 別室の時程(別室だけ始まりをずらすとき)
+    const rooms = sepRooms(), tss = sortedSlots(day).map(x=>x.s).filter(s=>s.kind==='test');
+    if(rooms.length && tss.length){
+      html += '<h3>別室の時程</h3><p class="hint">別室だけ始まりをずらすときは、時刻を入れます(空のままなら教室と同じ時刻)。終わりの時刻は、生徒ごとの延長から出します。</p>'
+        + '<div class="scroll-x"><table class="grid tt sep"><thead><tr><th>テストの時間</th><th>教室の時刻</th>'+rooms.map(r=>'<th>'+esc(r.name)+'</th>').join('')+'</tr></thead><tbody>'
+        + tss.map(s=>{
+          const sid = subjAt(ex, s.id), end = slotEnd(ex, s);
+          return '<tr><th class="l">'+esc(slotLabel(day, s))+' '+esc(subjectName(sid))+'</th><td class="nowrap">'+fmtT(tmin(s.start))+'〜'+fmtT(end)+'</td>'
+            + rooms.map(r=>{
+              const sts = roomStudentsAt(ex, r.roomId, day, s);
+              const ends = sts.map(sp=>specialEnd(ex, sp, s)).filter(e=>e!=null);
+              const own = ex.sepStart[s.id+'|'+r.roomId] || '';
+              return '<td class="'+(sts.length?'':'off')+'"><input type="time" data-path="ex.sepStart.'+s.id+'|'+r.roomId+'" data-type="str-or-delete" value="'+esc(own)+'"'+d+'>'
+                + '<div class="hint">'+(sts.length ? fmtT(sepStartOf(ex, r.roomId, s))+'〜'+[...new Set(ends)].sort((a,b)=>a-b).map(fmtT).join('/')+'('+sts.length+'人)' : 'この時間は使わない')+'</div></td>';
+            }).join('') + '</tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    html += '</section>';
   });
   $('tab-timetable').innerHTML = html;
   document.querySelectorAll('#tab-timetable .edit-only').forEach(el=> el.hidden = !editing);
@@ -156,9 +175,12 @@ function timetableWarnings(ex){
       }
       const e = slotEnd(ex, s);
       if(e!=null && e > nst) out.push(dayTitle(ex,di)+'：'+slotLabel(day,s)+'('+subjectName(subjAt(ex,s.id))+')の終わり('+fmtT(e)+')が、'+nm+'の始まり('+fmtT(nst)+')より遅くなっています。');
-      // 時間延長の生徒
-      const late = ex.special.filter(sp=>sp.extend && !isAbsentDay(sp, day)).map(sp=>({ sp, e:specialEnd(ex, sp, s) })).filter(x=>x.e!=null && x.e > nst);
-      if(late.length) out.push(dayTitle(ex,di)+'：'+slotLabel(day,s)+'の時間延長('+late.length+'人、〜'+fmtT(Math.max(...late.map(x=>x.e)))+')が、'+nm+'の始まり('+fmtT(nst)+')にかかります。休み時間が取れるか確かめてください。');
+      // 別室・時間延長の生徒: その生徒の終わりが、その生徒の次の行の始まり(別室をずらしていればその時刻)より遅い
+      const nstFor = sp => next.kind==='test' ? specialStart(ex, sp, next) : nst;
+      const late = ex.special.filter(sp=>(sp.extend || sp.room) && !isAbsentDay(sp, day)).map(sp=>({ sp, e:specialEnd(ex, sp, s), n:nstFor(sp) })).filter(x=>x.e!=null && x.n!=null && x.e > x.n);
+      const byPlace = {};
+      late.forEach(x=>{ const k = x.sp.room ? roomName(x.sp.room) : '教室'; (byPlace[k] = byPlace[k] || []).push(x); });
+      Object.entries(byPlace).forEach(([place, xs])=> out.push(dayTitle(ex,di)+'：'+place+'で受ける生徒の'+slotLabel(day,s)+'(時間延長など'+xs.length+'人、〜'+fmtT(Math.max(...xs.map(x=>x.e)))+')が、次の'+nm+'の始まり('+fmtT(Math.min(...xs.map(x=>x.n)))+')にかかります。別室の始まりをずらすか、時程を確かめてください。'));
     });
   });
   return out;
