@@ -151,3 +151,6 @@ table.subj tr.off-row th, table.subj tr.off-row td{ background:#f3f3f3; color:#8
 table.year th.cur, table.year td.cur{ background:#eef4fb; font-weight:bold; }
 .day-card h3{ font-size:15px; margin:14px 0 4px; }
 table.tt.sep td{ min-width:130px; }
+table.status .range{ font-size:13px; font-weight:bold; font-variant-numeric:tabular-nums; }
+table.status td.has{ background:#eef4fb; }
+table.status input[type=time]{ font-size:13px; padding:1px 3px; }

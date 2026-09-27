@@ -122,8 +122,8 @@ function normalizeExam(ex){
     delete ex.schedule[k];
   });
   if(!Array.isArray(ex.special)) ex.special = [];
-  ex.special = ex.special.filter(p=>p && p.studentId).map(p=>Object.assign({ id:newId('p'), room:'', extend:false, extType:'rate', rate:null, plus:null, minutes:{}, absentDays:[], note:'' }, p));
-  ex.special.forEach(p=>{ if(!p.minutes || typeof p.minutes!=='object') p.minutes = {}; if(!Array.isArray(p.absentDays)) p.absentDays = []; if(p.extType!=='plus') p.extType = 'rate'; });
+  ex.special = ex.special.filter(p=>p && p.studentId).map(p=>Object.assign({ id:newId('p'), room:'', extend:false, extType:'rate', rate:null, plus:null, minutes:{}, starts:{}, absentDays:[], note:'' }, p));
+  ex.special.forEach(p=>{ if(!p.minutes || typeof p.minutes!=='object') p.minutes = {}; if(!p.starts || typeof p.starts!=='object') p.starts = {}; if(!Array.isArray(p.absentDays)) p.absentDays = []; if(p.extType!=='plus') p.extType = 'rate'; });
   if(!ex.sepStart || typeof ex.sepStart!=='object') ex.sepStart = {};   // 別室だけ始まりをずらす時刻 { '時間id|別室id': 'HH:MM' }
   if(!ex.notice || typeof ex.notice!=='object') ex.notice = { title:CONFIG.defaultNoticeTitle, body:CONFIG.defaultNotice };
   return ex;
@@ -200,7 +200,13 @@ function sepStartOf(ex, roomId, slot){
   return own!=null ? own : tmin(slot.start);
 }
 // 配慮の必要な生徒の、その時間の始まり・終わりの時刻(別室の始まり・延長を含む)
-function specialStart(ex, sp, slot){ return sp.room ? sepStartOf(ex, sp.room, slot) : tmin(slot.start); }
+// 生徒ごとに始まりを変えていればその時刻、なければ別室の時刻(別室をずらしていれば、その時刻)、なければ教室と同じ
+// (2026-09-27 ユーザー: 同じ別室に時間延長の生徒とそうでない生徒がいて、始まりが違う可能性がある)
+function specialStart(ex, sp, slot){
+  const own = tmin((sp.starts||{})[slot.id]);
+  if(own!=null) return own;
+  return sp.room ? sepStartOf(ex, sp.room, slot) : tmin(slot.start);
+}
 function specialEnd(ex, sp, slot){
   const sid = subjAt(ex, slot.id), s0 = specialStart(ex, sp, slot);
   if(!sid || s0==null) return null;

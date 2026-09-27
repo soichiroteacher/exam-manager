@@ -164,6 +164,11 @@ function roomOfTeacher(ex, tid, slotId){
   return roomsForProctor().find(r=>proctorsAt(ex, slotId, r.key).includes(tid)) || null;
 }
 // 別室の、その時間の終わりの時刻(延長の生徒のうち一番遅い時刻)
+// 別室の、その時間の始まり(生徒ごとに始まりが違うときは、いちばん早い時刻)
+function sepRoomStart(ex, r, t){
+  const sts = roomStudentsAt(ex, r.roomId, t.day, t.slot).map(sp=>specialStart(ex, sp, t.slot)).filter(x=>x!=null);
+  return sts.length ? Math.min(...sts) : sepStartOf(ex, r.roomId, t.slot);
+}
 function sepRoomEnd(ex, r, t){
   const ends = roomStudentsAt(ex, r.roomId, t.day, t.slot).map(sp=>specialEnd(ex, sp, t.slot)).filter(e=>e!=null);
   return ends.length ? Math.max(...ends) : null;
@@ -211,7 +216,7 @@ TABS.proctor = { render(){
   // 別室の時刻(ずらした始まり〜延長の終わり)
   sepRooms().forEach(r=>{
     html += '<tr><th class="l">'+esc(r.name)+'の時刻</th>' + ts.map(t=>{ const e = sepRoomEnd(ex, r, t), n = roomStudentsAt(ex, r.roomId, t.day, t.slot).length;
-      return e!=null ? '<td class="small-cell">'+fmtT(sepStartOf(ex, r.roomId, t.slot))+'〜'+fmtT(e)+'('+n+'人)</td>' : '<td class="off">使わない</td>'; }).join('') + '<td></td><td></td></tr>';
+      return e!=null ? '<td class="small-cell">'+fmtT(sepRoomStart(ex, r, t))+'〜'+fmtT(e)+'('+n+'人)</td>' : '<td class="off">使わない</td>'; }).join('') + '<td></td><td></td></tr>';
   });
   html += '</tbody></table></div>';
   // 年間の監督回数(回ごと)

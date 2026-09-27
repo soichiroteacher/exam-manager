@@ -170,7 +170,7 @@ BUILD.proctor = (ex)=>{
   sepRooms().forEach((r, k)=>{
     body += '<tr class="sep-end'+(k===0?' first':'')+'"><th class="l">'+esc(r.name)+'の時刻</th>' + ts.map(t=>{
       const e = sepRoomEnd(ex, r, t);
-      return e!=null ? '<td>'+fmtT(sepStartOf(ex, r.roomId, t.slot))+'〜'+fmtT(e)+'<span class="small">('+roomStudentsAt(ex, r.roomId, t.day, t.slot).length+'人)</span></td>' : '<td class="off">―</td>';
+      return e!=null ? '<td>'+fmtT(sepRoomStart(ex, r, t))+'〜'+fmtT(e)+'<span class="small">('+roomStudentsAt(ex, r.roomId, t.day, t.slot).length+'人)</span></td>' : '<td class="off">―</td>';
     }).join('') + '<td></td><td></td></tr>';
   });
   let html = pTitle(esc(ex.name)+'　試験監督表', schoolSub()+'　'+fmtJDate(todayYmd())+'作成')
@@ -224,13 +224,16 @@ BUILD.sepTime = (ex)=>{
         if(s.kind==='other') return '<tr class="other"><td colspan="2">'+esc(s.label)+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
         const sts = roomStudentsAt(ex, r.roomId, day, s), sid = subjAt(ex, s.id);
         if(!sts.length) return '<tr class="none"><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+esc(subjectName(sid))+'</td><td class="time">(この部屋では受けません)</td></tr>';
-        const st0 = sepStartOf(ex, r.roomId, s), base = st0 + testMinutes(ex, sid);   // 別室だけ始まりをずらしていれば、その時刻から
-        const ext = [...new Set(sts.filter(sp=>sp.extend).map(sp=>specialEnd(ex, sp, s)))].sort((a,b)=>a-b);
-        const plain = sts.some(sp=>!sp.extend);
-        // 延長の人だけ →「8:55 〜 10:05(時間延長)」、延長なしの人もいる →「8:55 〜 9:45」と「延長の人 〜10:05」
-        const time = !ext.length ? fmtT(st0)+' 〜 '+fmtT(base)
-          : plain ? fmtT(st0)+' 〜 '+fmtT(base)+'<div class="extline">延長の人 〜'+ext.map(fmtT).join(' / ')+'</div>'
-          : fmtT(st0)+' 〜 <span class="ext">'+ext.map(fmtT).join(' / ')+'</span><div class="extline">(時間延長)</div>';
+        // 同じ部屋でも、生徒ごとに始まり・終わりが違うことがある(延長の生徒とそうでない生徒がいる等)。
+        // 違う「始まり〜終わり」を1行ずつ出す(生徒の名前は出さない)。延長の行には「(延長)」を付ける。
+        const ranges = [];
+        sts.forEach(sp=>{
+          const a = specialStart(ex, sp, s), b = specialEnd(ex, sp, s), x = !!sp.extend;
+          if(a==null || b==null) return;
+          if(!ranges.some(q=>q.a===a && q.b===b && q.x===x)) ranges.push({ a, b, x });
+        });
+        ranges.sort((p,q)=> p.a-q.a || p.b-q.b);
+        const time = ranges.map((q,k)=>'<div class="'+(k===0?'tfirst':'extline')+'">'+fmtT(q.a)+' 〜 '+(q.x ? '<span class="ext">'+fmtT(q.b)+'</span>(延長)' : fmtT(q.b))+'</div>').join('');
         return '<tr><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+esc(subjectName(sid))+'</td><td class="time">'+time+'</td></tr>';
       }).join('');
       pages.push({ grow:true, cls:'poster sep', html:'<div class="poster-head"><div class="date">'+(day.date?fmtJDate(day.date):'日付未定')+'</div><div class="who">'+esc(r.name)+'</div></div>'

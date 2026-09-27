@@ -49,8 +49,25 @@ TABS.special = { render(){
       + '<td class="edit-only"><button class="small danger" data-act="delSpecial" data-i="'+i+'">削除</button></td></tr>';
   });
   html += '</tbody></table></div>';
-  // --- 当日の受験状態 ---
   const ts = testSlots(ex);
+  // --- 生徒ごとの時刻(別室・時間延長の生徒。始まりを変えるとき) ---
+  const timed = list.filter(x=>x.p.room || x.p.extend);
+  if(ts.length && timed.length){
+    const { h1, h2 } = slotHeadHtml(ex, true);
+    html += '<section><h2>別室・時間延長の生徒の時刻</h2><p class="hint">ます目の時刻は「始まり〜終わり」です。同じ別室でも、生徒によって始まりを変えるときは、その時間の始まりの時刻を入れます(空のままなら、別室の時刻 = 「時間割」タブの「別室の時程」、なければ教室と同じ)。</p>'
+      + '<div class="scroll-x"><table class="grid status"><thead><tr><th rowspan="2">生徒</th><th rowspan="2">場所・延長</th>'+h1+'</tr><tr>'+h2+'</tr></thead><tbody>';
+    timed.forEach(({p, i, st})=>{
+      html += '<tr><th class="l nowrap">'+st.grade+'-'+st.cls+'-'+st.no+' '+esc(st.name)+'</th><td class="nowrap small-cell">'+esc(p.room?roomName(p.room):'教室')+(p.extend?' '+esc(extLabel(p)):'')+'</td>' + ts.map(t=>{
+        if(!subjAt(ex, t.slot.id)) return '<td class="off">―</td>';
+        if(isAbsentDay(p, t.day)) return '<td class="planned-absent hint">欠席予定</td>';
+        const own = (p.starts||{})[t.slot.id] || '';
+        return '<td'+(own?' class="has"':'')+'><div class="range">'+specialRange(ex, p, t.slot)+'</div>'
+          + '<input type="time" data-path="ex.special.'+i+'.starts.'+esc(t.slot.id)+'" data-type="str-or-delete" value="'+esc(own)+'" title="この生徒だけ始まりを変えるとき"'+d+'></td>';
+      }).join('') + '</tr>';
+    });
+    html += '</tbody></table></div></section>';
+  }
+  // --- 当日の受験状態 ---
   if(ts.length){
     const { h1, h2 } = slotHeadHtml(ex, false);
     html += '<section><h2>当日の受験状態</h2><p class="hint">掲示した一覧に書き込まれた受験状態を、あとでここに入れて残せます(追試の確認などに使います)。</p>'
@@ -83,7 +100,7 @@ document.addEventListener('change', e=>{
 ACTIONS.addSpecial = ()=>{
   const id = $('spStudent').value;
   if(!id){ alert('生徒を選んでください。名簿にいないときは、「名簿」タブで入れてください。'); return; }
-  curExam().special.push({ id:newId('p'), studentId:id, room:'', extend:false, rate:null, minutes:{}, absentDays:[], note:'' });
+  curExam().special.push({ id:newId('p'), studentId:id, room:'', extend:false, extType:'rate', rate:null, plus:null, minutes:{}, starts:{}, absentDays:[], note:'' });
   markDirty(); renderAll();
 };
 ACTIONS.delSpecial = el=>{

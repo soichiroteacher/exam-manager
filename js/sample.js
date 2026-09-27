@@ -56,14 +56,16 @@ function makeSample(){
   ];
   // 2日目の2時間目(英語)は、相談室だけ10分遅く始める(別室の始まりをずらす例)
   ex.sepStart = { [t2[1].id+'|r1']:'10:45' };
+  // 同じ相談室でも、延長のない生徒(p2)は教室と同じ 10:35 に始める(生徒ごとに始まりを変える例)
+  ex.special.find(p=>p.id==='p2').starts = { [t2[1].id]:'10:35' };
   ex.leave = { ['m8|'+t1[0].id]:'出張', ['m8|'+t1[1].id]:'出張', ['m8|'+t1[2].id]:'出張', ['m12|'+t2[0].id]:'休暇', ['m12|'+t2[1].id]:'休暇', ['m23|'+t1[0].id]:'その他' };
-  // 年間の回数の例: 前の回(1学期期末)を、同じ時程で作って監督を割り当てておく
+  // 年間の回数の例: 前の回(1学期期末。3日間・9教科)を作って監督を割り当てておく
   const prev = newExam('1学期期末テスト');
-  const pd = new Date(); pd.setMonth(pd.getMonth()-3);
-  prev.days = [d1, d2].map((dd, i)=>{ const x = new Date(pd); x.setDate(x.getDate()+i); return { id:newId('d'), date:ymd(x), slots: dd.slots.map(sl=>({ ...clone(sl), id:newId('t') })) }; });
-  state.subjects.forEach(sb=>{ prev.subjects[sb.id].on = ['s1','s2','s3','s4','s5'].includes(sb.id); });
-  const pt = testSlots(prev); ['s1','s3','s2','s4','s5'].forEach((sid,i)=>{ if(pt[i]) prev.schedule[pt[i].slot.id] = sid; });
-  prev.special = clone(ex.special).map(p=>({ ...p, absentDays:[] }));
+  const pd = new Date(); pd.setMonth(pd.getMonth()-3); while(pd.getDay()!==3) pd.setDate(pd.getDate()+1);   // 3か月前の水曜から3日間
+  prev.days = [0,1,2].map(i=>{ const x = new Date(pd); x.setDate(x.getDate()+i); return { id:newId('d'), date:ymd(x), slots: d1.slots.map(sl=>({ ...clone(sl), id:newId('t') })) }; });
+  state.subjects.forEach(sb=>{ prev.subjects[sb.id].on = true; });   // 期末は9教科・どれも50分
+  const pt = testSlots(prev); ['s1','s3','s6','s4','s2','s7','s5','s8','s9'].forEach((sid,i)=>{ if(pt[i]) prev.schedule[pt[i].slot.id] = sid; });
+  prev.special = clone(ex.special).map(p=>({ ...p, absentDays:[], starts:{}, minutes:{} }));
   s.exams = [prev, ex];
   autoAssign(prev, false);
   autoAssign(ex, false);

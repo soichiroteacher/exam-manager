@@ -54,7 +54,7 @@ ACTIONS.copyExam = ()=>{
   ex.days = src.days.map(dd=>({ id:newId('d'), date:'', slots: dd.slots.map(s=>({ ...clone(s), id:newId('t') })) }));
   ex.subjects = clone(src.subjects);
   ex.notice = clone(src.notice);
-  ex.special = src.special.map(p=>({ ...clone(p), id:newId('p'), absentDays:[] }));
+  ex.special = src.special.map(p=>({ ...clone(p), id:newId('p'), absentDays:[], starts:{} }));   // 生徒ごとの始まりの時刻は、時間が変わるので写さない
   state.exams.push(ex); view.examId = ex.id; savePref();
   markDirty(); renderAll();
   alert('「'+name+'」を作りました。日付を入れ、「時間割」タブで教科を並べてください。');
