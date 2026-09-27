@@ -117,3 +117,32 @@ table.poster-table tr.none td{ color:#888; font-size:30px; }
 /* 別室の時程表 */
 .poster.sep .extline{ font-size:40px; }
 .poster.sep td.time .ext{ border-bottom:5px double #000; }
+
+/* 個票(A4縦に1人) */
+.report{ font-size:15px; }
+.rp-head{ display:flex; justify-content:space-between; align-items:baseline; border-bottom:3px solid #000; padding-bottom:4px; }
+.rp-title{ font-size:26px; font-weight:bold; }
+.rp-sub{ font-size:13px; }
+.rp-name{ display:flex; gap:24px; align-items:baseline; margin:14px 0 12px; font-size:20px; }
+.rp-name b{ font-size:30px; border-bottom:2px solid #000; padding:0 20px 2px; }
+.rp-table th, .rp-table td{ font-size:16px; padding:6px 8px; }
+.rp-table td.score{ font-size:20px; font-weight:bold; }
+.rp-table td.diff{ font-weight:bold; }
+.rp-table tr.total > *{ background:#f0f0f0; border-top:2px solid #000; }
+.report .p-h2{ font-size:17px; margin:16px 0 6px; }
+.dist-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px 14px; }
+.dist-box{ border:1px solid #888; border-radius:6px; padding:4px 6px 2px; break-inside:avoid; }
+.dist-box .dt{ font-size:14px; font-weight:bold; }
+.mini-dist{ display:flex; align-items:flex-end; gap:2px; height:96px; }
+.mini-dist .col{ flex:1; display:flex; flex-direction:column; align-items:center; height:100%; }
+.mini-dist .mark{ height:14px; font-size:12px; line-height:14px; }
+.mini-dist .barwrap{ flex:1; width:100%; display:flex; align-items:flex-end; }
+.mini-dist .bar{ width:100%; background:#bbb; min-height:1px; }
+.mini-dist .col.me .bar{ background:#000; }
+.mini-dist .lab{ font-size:9px; color:#333; height:12px; }
+/* 成績一覧表 */
+.grade-list th, .grade-list td{ font-size:14px; padding:1px 4px; }
+.grade-list .name{ text-align:left; white-space:nowrap; min-width:90px; }
+.grade-list .tot{ background:#f0f0f0; font-weight:bold; border-left:1.5px solid #000; }
+.grade-list tr.avg > *{ background:#e8eef6; font-weight:bold; }
+.grade-list tr.avg:first-of-type > *, .grade-list tr:not(.avg) + tr.avg > *{ border-top:2px solid #000; }

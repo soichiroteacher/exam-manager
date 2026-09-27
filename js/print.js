@@ -46,10 +46,24 @@ TABS.print = { render(){
     if(k==='sepTime') extra = '<label>日 <select data-popt="sepTime.day">'+dayOpts(optOf('sepTime','day','all'))+'</select></label>';
     if(k==='special') extra = '<label><input type="checkbox" data-popt="special.fill"'+(optOf('special','fill',false)?' checked':'')+'> 入力済みの受験状態を書き入れる</label>';
     if(k==='attend') extra = '<label>クラス <select data-popt="attend.target">'+targetOpts(optOf('attend','target','all'))+'</select></label>';
+    if(k==='report'){
+      const cmp = optOf('report','compare','auto'), pv = prevExamOf(ex);
+      extra = '<label>生徒 <select data-popt="report.target">'+targetOpts(optOf('report','target','all'))+'</select></label>'
+        + '<label>比べる回 <select data-popt="report.compare"><option value="auto"'+(cmp==='auto'?' selected':'')+'>前の回'+(pv?'('+esc(pv.name)+')':'(なし)')+'</option>'
+        + state.exams.filter(x=>x!==ex).map(x=>'<option value="'+esc(x.id)+'"'+(cmp===x.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')
+        + '<option value="none"'+(cmp==='none'?' selected':'')+'>比べない</option></select></label>';
+    }
+    if(k==='gradeList'){
+      const gsel = String(optOf('gradeList','grade','all')), ord = optOf('gradeList','order','no');
+      extra = '<label>学年 <select data-popt="gradeList.grade"><option value="all">全学年</option>'+gs.map(g=>'<option value="'+g+'"'+(gsel===String(g)?' selected':'')+'>'+g+'年</option>').join('')+'</select></label>'
+        + '<label>並べ方 <select data-popt="gradeList.order">'+[['no','組・番号の順'],['r5','5教科の順位'],['rA','全教科の順位']].map(([v,l])=>'<option value="'+v+'"'+(ord===v?' selected':'')+'>'+l+'</option>').join('')+'</select></label>';
+    }
     html += '<section class="print-card"><h2>'+esc(f.title)+'</h2><p class="hint">'+esc(f.desc)+'</p><div class="line">'
       + '<label>用紙 <select data-popt="'+k+'.paper">'+f.paper.map(p=>'<option value="'+p+'"'+(p===paper?' selected':'')+'>'+PAPER[p].name+'</option>').join('')+'</select></label> '
       + extra + '</div><div class="line"><button class="primary" data-act="printForm" data-form="'+k+'">画面で確かめる・印刷</button></div></section>';
   });
+  html += '<section class="print-card"><h2>成績一覧(Excel)</h2><p class="hint">学年ごとの点数・合計・順位と、平均点を Excel(.xlsx)に書き出します。生徒の名前と点数が入るので、校内の共有サーバーに保存してください。</p>'
+    + '<div class="line"><button class="primary" data-act="exportXlsx">Excel に書き出す</button></div></section>';
   html += '</div>';
   $('tab-print').innerHTML = html;
 }};
@@ -91,7 +105,21 @@ function showPreview(title, paperKey, pages){
   box.innerHTML = pages.map(p=>'<div class="p-page '+(p.cls||'')+'" style="width:'+P.w+'px;height:'+P.h+'px"><div class="p-inner" style="width:'+P.w+'px">'+p.html+'</div></div>').join('');
   document.body.classList.add('previewing');
   // 1枚に収める(ポスターは用紙いっぱいに広げる)
-  [...box.querySelectorAll('.p-page')].forEach((pg, i)=> fitPage(pg.firstChild, P, pages[i].grow));
+  // (個票などページが多いときに遅くならないよう、先に全ページの高さをまとめて測り、はみ出す・広げるページだけ直す)
+  const inners = [...box.querySelectorAll('.p-inner')];
+  const heights = inners.map(el=>el.getBoundingClientRect().height);
+  const wide = inners.map(el=>el.scrollWidth > el.clientWidth + 1);
+  // 広げるページ(grow)は、同じ種類の1枚目で倍率を決めて、ほかのページにも同じ倍率を使う(個票が数百枚でも速いように)。
+  // そのあとまとめて測り、はみ出したページだけ1枚ずつ直す。
+  const firstZ = {};
+  inners.forEach((el, i)=>{
+    const g = pages[i].grow, key = String(g)+'|'+(pages[i].cls||'');
+    if(g && firstZ[key]===undefined){ fitPage(el, P, g); firstZ[key] = Number(el.style.zoom) || 1; return; }
+    if(g){ el.style.zoom = firstZ[key]; el.style.width = (P.w / firstZ[key]) + 'px'; return; }
+    if(heights[i] > P.h - 3 || wide[i]) fitPage(el, P, g);
+  });
+  const after = inners.map(el=>el.getBoundingClientRect().height);
+  inners.forEach((el, i)=>{ if(pages[i].grow && (after[i] > P.h - 3 || el.scrollWidth > el.clientWidth + 1)) fitPage(el, P, pages[i].grow); });
   // 画面の幅に合わせて小さく見せる(印刷のときは元の大きさ。CSS の @media print で zoom を 1 に戻す)
   const avail = Math.max(300, window.innerWidth - 60);
   box.style.zoom = Math.min(1, avail / P.w);

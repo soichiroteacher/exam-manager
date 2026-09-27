@@ -195,7 +195,7 @@ TABS.stats = { render(){
   if(!sum.subs.length){ $('tab-stats').innerHTML = '<div class="banner">「テストの回」タブで、実施する教科に印を付けてください。</div>'; return; }
   const cl = Array.from({length:sum.classes},(_,i)=>i+1);
   const keys = sum.subs.map(s=>s.id).concat(sum.core.length ? ['T5'] : []).concat(sum.hasAll ? ['TA'] : []);
-  let html = '<div class="toolbar"><span class="seg">'+gs.map(x=>'<button data-act="statsGrade" data-g="'+x+'"'+(x===g?' class="active"':'')+'>'+x+'年</button>').join('')+'</span>'
+  let html = '<div class="toolbar"><button data-act="exportXlsx">Excel に書き出す(成績一覧)</button><button data-act="printForm" data-form="gradeList">🖨 成績一覧表を印刷</button><button data-act="printForm" data-form="report">🖨 個票を印刷</button></div><div class="toolbar"><span class="seg">'+gs.map(x=>'<button data-act="statsGrade" data-g="'+x+'"'+(x===g?' class="active"':'')+'>'+x+'年</button>').join('')+'</span>'
     + '<span class="hint">欠席(欠)と未入力は、平均点に入れません。合計と順位は、その教科がすべてそろった人だけで出します(同点は同じ順位)。</span></div>';
   // --- 平均点 ---
   html += '<section><h2>平均点</h2><div class="scroll-x"><table class="grid stats"><thead><tr><th>教科</th><th>満点</th><th>人数</th><th>学年平均</th><th>最高</th><th>最低</th><th>標準偏差</th>'
