@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "exam-manager",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "../../.claude/serve-dir.ps1", "-Root", "apps/exam-manager", "-Port", "8105"],
+      "port": 8105
+    }
+  ]
+}
