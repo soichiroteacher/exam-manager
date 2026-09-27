@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>定期テスト</title>
+<!--
+  定期テスト(試験監督・時程表・配慮の必要な生徒・注意事項・出欠記録)
+  - このフォルダ(index.html・css・js)をまとめて置き、index.html をダブルクリックで開けば動く。外部ライブラリは使っていない。
+  - Chrome / Edge 専用(データファイルへの直接保存に File System Access API を使うため)。
+  - 作りの説明は HANDOFF.md、使い方は README.md を参照。
+-->
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/print.css">
+<style id="pageStyle">@page{ size:A4 landscape; margin:8mm; }</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>定期テスト</h1>
+  <span id="schoolTitle"></span>
+  <label id="examPick" hidden>テストの回：<select id="examSelect"></select></label>
+  <span class="spacer"></span>
+  <span id="lockWarning" hidden></span>
+  <span id="editBadge" class="edit-badge">閲覧のみ</span>
+  <button id="btnEdit">✏ 編集する</button>
+  <button id="btnReload" title="ほかの先生が保存した最新の内容を読み直します">↻ 最新にする</button>
+  <button id="btnSave" disabled>保存</button>
+  <button id="btnOpen">開く</button>
+  <button id="btnNew">新規作成</button>
+  <span id="status"></span>
+  <span id="fileName"></span>
+</header>
+
+<nav class="tabs">
+  <button data-tab="settings">設定</button>
+  <button data-tab="roster">名簿</button>
+  <button data-tab="exam">テストの回</button>
+  <button data-tab="timetable">時間割</button>
+  <button data-tab="leave">休暇</button>
+  <button data-tab="proctor">監督</button>
+  <button data-tab="special">配慮生徒</button>
+  <button data-tab="print">印刷</button>
+</nav>
+
+<main>
+  <div id="startBanner" class="banner" hidden>
+    <p><b>データファイルを開いてください。</b>データファイル(.json)は、校務共有サーバーのこのアプリと同じフォルダに置いてあります。</p>
+    <p class="hint">年度のはじめに1回だけ「新規作成」でデータファイルを作ります(1年分・全学年で1つ)。どんなアプリか試すだけなら「見本を表示する」を押してください(見本は保存されません)。</p>
+    <div class="line">
+      <button class="primary" id="bnOpen">データファイルを開く</button>
+      <button id="bnNew">新規作成</button>
+      <button id="bnSample">見本を表示する</button>
+    </div>
+    <div id="bnLast" style="margin-top:12px" hidden></div>
+  </div>
+  <!-- 各タブの中身は js で組み立てる -->
+  <section id="tab-settings" hidden></section>
+  <section id="tab-roster" hidden></section>
+  <section id="tab-exam" hidden></section>
+  <section id="tab-timetable" hidden></section>
+  <section id="tab-leave" hidden></section>
+  <section id="tab-proctor" hidden></section>
+  <section id="tab-special" hidden></section>
+  <section id="tab-print" hidden></section>
+</main>
+
+<!-- ===== 「編集する」の画面 ===== -->
+<div class="overlay" id="editOverlay">
+  <div class="modal" style="width:440px">
+    <h2>編集を始めます</h2>
+    <div class="row"><span class="k">お名前</span><span class="v"><input type="text" id="eName" list="teacherNames"><div class="hint">ほかの先生に「○○先生が編集中」と表示されます。</div></span></div>
+    <div class="row" id="ePwRow"><span class="k">パスワード</span><span class="v"><input type="password" id="ePw"></span></div>
+    <div class="err" id="eErr"></div>
+    <div class="foot"><span class="spacer"></span><button id="eCancel">やめる</button><button class="primary" id="eOk">編集を始める</button></div>
+  </div>
+</div>
+<datalist id="teacherNames"></datalist>
+
+<!-- ===== 新規作成の画面 ===== -->
+<div class="overlay" id="newOverlay">
+  <div class="modal" style="width:480px">
+    <h2>新しいデータファイルを作る</h2>
+    <div class="row"><span class="k">年度</span><span class="v"><input type="number" id="nYear" style="width:100px"> 年度</span></div>
+    <div class="row"><span class="k">学校名</span><span class="v"><input type="text" id="nSchool" placeholder="例：〇〇中学校"></span></div>
+    <div class="hint">「作る」を押すと、保存する場所を聞かれます。校務共有サーバーの、このアプリと同じフォルダを選んでください。<b>生徒の名前が入るので、インターネットやクラウドのフォルダには保存しないでください。</b></div>
+    <div class="err" id="nErr"></div>
+    <div class="foot"><span class="spacer"></span><button id="nCancel">やめる</button><button class="primary" id="nOk">作る</button></div>
+  </div>
+</div>
+
+<!-- ===== チェックで選ぶ画面(担当教科など) ===== -->
+<div class="overlay" id="choiceOverlay">
+  <div class="modal" style="width:420px">
+    <h2 id="chTitle"></h2>
+    <div class="choices col" id="chList"></div>
+    <div class="foot"><span class="spacer"></span><button id="chCancel">やめる</button><button class="primary" id="chOk">決定</button></div>
+  </div>
+</div>
+
+<!-- ===== 入力する画面(教科ごとの延長の時間など) ===== -->
+<div class="overlay" id="formOverlay">
+  <div class="modal" style="width:560px">
+    <h2 id="fmTitle"></h2>
+    <div id="fmBody"></div>
+    <div class="foot"><span class="spacer"></span><button id="fmCancel">閉じる</button><button class="primary" id="fmOk">決定</button></div>
+  </div>
+</div>
+
+<!-- ===== 印刷の確かめ(画面)と、印刷する中身 ===== -->
+<div id="printArea">
+  <div class="pp-bar"><b id="ppTitle"></b><span class="spacer"></span><span class="hint">この形で印刷します。</span><button class="primary" id="ppPrint">🖨 印刷する</button><button id="ppClose">閉じる</button></div>
+  <div id="printPages"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/core.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/exam.js"></script>
+<script src="js/proctor.js"></script>
+<script src="js/special.js"></script>
+<script src="js/print.js"></script>
+<script src="js/sample.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
