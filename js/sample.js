@@ -33,13 +33,16 @@ function makeSample(){
   d2.slots = d2.slots.filter((x,i)=>i!==3);   // 2日目は2時間
   d2.slots[d2.slots.length-1].start = '10:55'; d2.slots[d2.slots.length-1].end = '11:05';
   ex.days = [d1, d2];
-  // 中間は5教科だけ。英語は60分(教科ごとにテスト時間を変える例)
-  grades().forEach(g=> state.subjects.forEach(sb=>{ const m = ex.subjects[g][sb.id]; m.on = ['s1','s2','s3','s4','s5'].includes(sb.id); if(sb.id==='s5') m.minutes = 60; if(sb.id==='s2') m.minutes = 45; }));
+  // 中間は5教科だけ。英語は60分・社会は45分(教科ごとにテスト時間を変える例)。教科は全学年共通
+  state.subjects.forEach(sb=>{ const m = ex.subjects[sb.id]; m.on = ['s1','s2','s3','s4','s5'].includes(sb.id); if(sb.id==='s5') m.minutes = 60; if(sb.id==='s2') m.minutes = 45; });
   const t1 = d1.slots.filter(x=>x.kind==='test'), t2 = d2.slots.filter(x=>x.kind==='test');
-  const plan = { 1:[['s1','s3','s2'],['s4','s5']], 2:[['s3','s2','s1'],['s5','s4']], 3:[['s2','s1','s3'],['s5','s4']] };
-  Object.entries(plan).forEach(([g, [a, b]])=>{ a.forEach((sid,i)=> ex.schedule[t1[i].id+'|'+g] = sid); b.forEach((sid,i)=> ex.schedule[t2[i].id+'|'+g] = sid); });
-  // 英語60分のため、2日目の2時間目を少し遅らせる
-  t2[1].start = '10:05'; d2.slots[d2.slots.length-1].start = '11:20'; d2.slots[d2.slots.length-1].end = '11:30';
+  ['s1','s3','s2'].forEach((sid,i)=> ex.schedule[t1[i].id] = sid);
+  ['s4','s5'].forEach((sid,i)=> ex.schedule[t2[i].id] = sid);
+  // 時間延長(1.3倍)の生徒が次の時間にかからないよう、テストの間を長めにあけた時程
+  t1[1].start = '10:10'; t1[2].start = '11:25';
+  const back1 = d1.slots[d1.slots.length-1]; back1.start = '12:40'; back1.end = '12:50';
+  t2[1].start = '10:20';
+  const back2 = d2.slots[d2.slots.length-1]; back2.start = '11:50'; back2.end = '12:00';
   // 配慮の必要な生徒
   ex.special = [
     { id:'p1', studentId:'st1_1_5', room:'r1', extend:true, rate:null, minutes:{}, absentDays:[], note:'問題用紙を拡大(A3)' },

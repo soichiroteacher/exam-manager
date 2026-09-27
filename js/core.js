@@ -108,10 +108,16 @@ function normalizeExam(ex){
     if(!Array.isArray(d.slots)) d.slots = [];
     d.slots.forEach(s=>{ if(!s.id) s.id = newId('t'); if(s.kind!=='other') s.kind = 'test'; s.label = s.label||''; s.start = s.start||''; s.end = s.end||''; });
   });
-  // 学年 × 教科 の「その回に実施するか・テスト時間・満点」
-  state.meta.grades.forEach(g=>{
-    const m = ex.subjects[g.grade] = ex.subjects[g.grade] || {};
-    state.subjects.forEach(s=>{ m[s.id] = Object.assign({ on:true, minutes:CONFIG.defaultMinutes, max:CONFIG.defaultMax }, m[s.id]); });
+  // 教科ごとの「その回に実施するか・テスト時間・満点」。教科と時間割は全学年共通(2026-09-27 ユーザーと確認)。
+  // 試作の途中の形(学年ごと: subjects['1'][教科] / schedule['時間id|学年'])で保存したファイルは、1年のものを使って直す。
+  const gradeKeys = Object.keys(ex.subjects).filter(k=>/^\d+$/.test(k)).sort();
+  if(gradeKeys.length) ex.subjects = Object.assign({}, ex.subjects[gradeKeys[0]]);
+  state.subjects.forEach(s=>{ ex.subjects[s.id] = Object.assign({ on:true, minutes:CONFIG.defaultMinutes, max:CONFIG.defaultMax }, ex.subjects[s.id]); });
+  Object.keys(ex.schedule).sort().forEach(k=>{
+    if(!k.includes('|')) return;
+    const slotId = k.split('|')[0];
+    if(!ex.schedule[slotId]) ex.schedule[slotId] = ex.schedule[k];
+    delete ex.schedule[k];
   });
   if(!Array.isArray(ex.special)) ex.special = [];
   ex.special = ex.special.filter(p=>p && p.studentId).map(p=>Object.assign({ id:newId('p'), room:'', extend:false, rate:null, minutes:{}, absentDays:[], note:'' }, p));
@@ -159,36 +165,33 @@ function testSlots(ex){
   return out;
 }
 function dayTitle(ex, di){ const d = ex.days[di]; return (di+1)+'日目' + (d && d.date ? ' '+fmtMDW(d.date) : ''); }
-function examSubj(ex, grade, sid){ return (ex.subjects[grade]||{})[sid] || { on:false, minutes:CONFIG.defaultMinutes, max:CONFIG.defaultMax }; }
-function subjAt(ex, slotId, grade){ return ex.schedule[slotId+'|'+grade] || ''; }
-function testMinutes(ex, grade, sid){ return Number(examSubj(ex, grade, sid).minutes) || CONFIG.defaultMinutes; }
-function slotEnd(ex, slot, grade){
-  const sid = subjAt(ex, slot.id, grade), st = tmin(slot.start);
+// 教科と時間割は全学年共通(同じ時間に全学年が同じ教科のテストを受ける)
+function examSubj(ex, sid){ return ex.subjects[sid] || { on:false, minutes:CONFIG.defaultMinutes, max:CONFIG.defaultMax }; }
+function subjAt(ex, slotId){ return ex.schedule[slotId] || ''; }
+function testMinutes(ex, sid){ return Number(examSubj(ex, sid).minutes) || CONFIG.defaultMinutes; }
+function slotEnd(ex, slot){
+  const sid = subjAt(ex, slot.id), st = tmin(slot.start);
   if(!sid || st==null) return null;
-  return st + testMinutes(ex, grade, sid);
+  return st + testMinutes(ex, sid);
 }
 // 時間延長したときのテスト時間(分)。生徒・教科ごとに分を指定していればそれ、なければ 倍率 × テスト時間(切り上げ)
-function extMinutes(ex, sp, grade, sid){
+function extMinutes(ex, sp, sid){
   const own = sp.minutes && Number(sp.minutes[sid]);
   if(own) return own;
   const rate = Number(sp.rate) || state.meta.extendRate;
-  return Math.ceil(testMinutes(ex, grade, sid) * rate - 1e-9);
+  return Math.ceil(testMinutes(ex, sid) * rate - 1e-9);
 }
 // 配慮の必要な生徒の、その時間の終わりの時刻(延長を含む)
 function specialEnd(ex, sp, slot){
-  const st = studentById(sp.studentId); if(!st) return null;
-  const sid = subjAt(ex, slot.id, st.grade), s0 = tmin(slot.start);
+  const sid = subjAt(ex, slot.id), s0 = tmin(slot.start);
   if(!sid || s0==null) return null;
-  return s0 + (sp.extend ? extMinutes(ex, sp, st.grade, sid) : testMinutes(ex, st.grade, sid));
+  return s0 + (sp.extend ? extMinutes(ex, sp, sid) : testMinutes(ex, sid));
 }
 function isAbsentDay(sp, day){ return sp.absentDays.includes(day.id); }
-// その時間に別室を使うか(その部屋の生徒のうち、テストがあって欠席でない人がいるか)
+// その時間に別室で受ける生徒(テストがあって、欠席の日でない人)
 function roomStudentsAt(ex, roomId, day, slot){
-  return ex.special.filter(sp=>{
-    if(sp.room!==roomId || isAbsentDay(sp, day)) return false;
-    const st = studentById(sp.studentId);
-    return st && subjAt(ex, slot.id, st.grade);
-  });
+  if(!subjAt(ex, slot.id)) return [];
+  return ex.special.filter(sp=> sp.room===roomId && !isAbsentDay(sp, day) && studentById(sp.studentId));
 }
 function proctorsAt(ex, slotId, roomKey){ return ex.proctors[slotId+'|'+roomKey] || []; }
 

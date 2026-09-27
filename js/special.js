@@ -54,7 +54,7 @@ TABS.special = { render(){
       + '<div class="scroll-x"><table class="grid status"><thead><tr><th rowspan="2">生徒</th>'+h1+'</tr><tr>'+h2+'</tr></thead><tbody>';
     list.forEach(({p, st})=>{
       html += '<tr><th class="l nowrap">'+st.grade+'-'+st.cls+'-'+st.no+' '+esc(st.name)+'</th>' + ts.map(t=>{
-        const sid = subjAt(ex, t.slot.id, st.grade);
+        const sid = subjAt(ex, t.slot.id);
         if(!sid) return '<td class="off">―</td>';
         const key = p.studentId+'|'+t.slot.id, v = ex.status[key] || '';
         const plan = isAbsentDay(p, t.day) ? '欠席予定' : '';
@@ -93,10 +93,10 @@ ACTIONS.delSpecial = el=>{
 // 教科ごとの延長の時間(分)を決める画面
 ACTIONS.specialMinutes = el=>{
   const ex = curExam(), p = ex.special[+el.dataset.i], st = studentById(p.studentId);
-  const subs = state.subjects.filter(s=>examSubj(ex, st.grade, s.id).on);
+  const subs = state.subjects.filter(s=>examSubj(ex, s.id).on);
   $('fmTitle').textContent = studentLabel(st)+'　教科ごとの時間';
   $('fmBody').innerHTML = '<p class="hint">空のままなら「テスト時間 × 倍率」になります。教科や本人の希望で変えるときだけ、分を入れてください。</p><table class="grid"><thead><tr><th>教科</th><th>テスト時間</th><th>延長(自動)</th><th>この生徒の時間</th></tr></thead><tbody>'
-    + subs.map(s=>{ const base = testMinutes(ex, st.grade, s.id), auto = Math.ceil(base*(Number(p.rate)||state.meta.extendRate)-1e-9);
+    + subs.map(s=>{ const base = testMinutes(ex, s.id), auto = Math.ceil(base*(Number(p.rate)||state.meta.extendRate)-1e-9);
       return '<tr><th class="l">'+esc(s.name)+'</th><td>'+base+'分</td><td>'+auto+'分</td><td><input type="number" min="1" max="300" style="width:80px" data-sid="'+esc(s.id)+'" value="'+(p.minutes[s.id]||'')+'"'+dis()+'> 分</td></tr>'; }).join('')
     + '</tbody></table>';
   formCallback = ()=>{

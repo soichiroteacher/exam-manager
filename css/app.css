@@ -140,3 +140,11 @@ table.status select{ width:100%; }
 .modal .choices.col{ display:flex; flex-direction:column; gap:4px; max-height:320px; overflow:auto; border:1px solid var(--line); border-radius:5px; padding:6px 10px; }
 .modal .foot{ display:flex; gap:10px; margin-top:16px; align-items:center; }
 .modal .err{ color:var(--warn); font-size:14px; margin-top:6px; }
+table.proctor .subjname{ font-size:15px; font-weight:bold; color:var(--accent); }
+table.proctor td{ min-width:92px; }
+table.proctor td.has{ background:#eef4fb; }
+table.proctor td.leave{ background:#f0f0f0; }
+table.proctor td.leave select{ color:var(--warn); }
+table.grid td.small-cell{ font-size:13px; }
+table.grid td.ok-cell{ color:var(--ok); text-align:center; }
+table.subj tr.off-row th, table.subj tr.off-row td{ background:#f3f3f3; color:#888; }

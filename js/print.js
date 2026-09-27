@@ -13,8 +13,8 @@ const PAPER = {
 // 用紙の種類。paper = 選べる用紙(最初が初期値)
 const FORMS = {
   leave:     { title:'休暇集約用紙',            paper:['A4P','A4L'], desc:'監督表を作る前に、先生方に休暇・出張で監督に入れない時間を書いてもらう用紙です。名前は「設定」の先生・サポーターから入ります。' },
-  proctor:   { title:'監督表',                  paper:['A4L','A4P','A3L'], desc:'日・時間ごとの教科と時刻、教室ごとの監督、別室と時間延長の時刻を1枚にまとめます。入りきらないときは文字を小さくして1枚に収めます。' },
-  roomTime:  { title:'時程表(通常の教室)',      paper:['A3L','A3P'], desc:'各教室に掲示する時程表です。1日1枚・学年ごと(クラスごとも選べます)。遠くから見えるよう、用紙いっぱいの大きな文字にします。' },
+  proctor:   { title:'監督表',                  paper:['A4P','A4L','A3P'], desc:'縦に先生、横にテストの時間(教科と時刻)を並べ、ます目に監督に入る教室(1-1 など)を書きます。別室の延長の終わりの時刻と、別室・延長の生徒の表も付けて1枚にまとめます。' },
+  roomTime:  { title:'時程表(通常の教室)',      paper:['A3L','A3P'], desc:'各教室に掲示する時程表です。1日1枚(クラス名を入れて、クラスごとに出すこともできます)。遠くから見えるよう、用紙いっぱいの大きな文字にします。' },
   sepTime:   { title:'時程表(別室)',            paper:['A3L','A3P'], desc:'別室に掲示する時程表です。1日1枚・部屋ごと。時間延長の終わりの時刻も載せます(生徒の名前は載せません)。' },
   special:   { title:'配慮生徒一覧',            paper:['A3L','A4L'], desc:'欠席・別室受験・時間延長などの生徒の一覧です。当日、職員室に掲示し、受験状態を書き込みます。生徒の名前が入るので、掲示する場所に気をつけてください。' },
   notice:    { title:'注意事項',                paper:['A3P','A3L'], desc:'教室に掲示するテストの注意事項です。文は「テストの回」タブで直せます。' },
@@ -141,87 +141,77 @@ BUILD.leave = (ex)=>{
   return [{ html }];
 };
 
-// ---- 監督表 ----
+// ---- 監督表(縦に先生、横に教科(テストの時間)。ます目に入る教室) ----
 BUILD.proctor = (ex)=>{
-  const ts = testSlots(ex);
-  if(!ts.length) return [];
-  const gs = grades(), counts = proctorCounts(ex);
+  const ts = testSlots(ex), people = proctorPeople();
+  if(!ts.length || !people.length) return [];
+  const counts = proctorCounts(ex);
   let h1 = '', h2 = '';
   ex.days.forEach((day, di)=>{
     const n = ts.filter(t=>t.di===di).length; if(!n) return;
     const other = otherSlotsText(day);
     h1 += '<th colspan="'+n+'" class="dayh">'+esc(dayTitle(ex, di))+(other ? '<div class="small">'+other+'</div>' : '')+'</th>';
   });
-  ts.forEach(t=>{ h2 += '<th class="slot">'+esc(t.label)+'</th>'; });
-  let body = '';
-  const names = ids => ids.map(teacherName).filter(Boolean).map(esc).join('・');
-  gs.forEach(g=>{
-    // 学年の教科と時刻の行
-    body += '<tr class="subj"><th class="l">'+g+'年</th>' + ts.map(t=>{
-      const sid = subjAt(ex, t.slot.id, g);
-      return sid ? '<td><b>'+esc(subjectName(sid))+'</b><div class="small">'+range(tmin(t.slot.start), slotEnd(ex, t.slot, g))+'</div></td>' : '<td class="off">―</td>';
-    }).join('') + '</tr>';
-    classRooms().filter(r=>r.grade===g).forEach(r=>{
-      body += '<tr><th class="l room">'+r.grade+'-'+r.cls+'</th>' + ts.map(t=> subjAt(ex, t.slot.id, g) ? '<td>'+names(proctorsAt(ex, t.slot.id, r.key))+'</td>' : '<td class="off"></td>').join('') + '</tr>';
-    });
+  ts.forEach(t=>{
+    const sid = subjAt(ex, t.slot.id);
+    h2 += '<th class="slot"><span class="small">'+esc(t.label)+'</span><div class="subjname">'+(sid ? esc(subjectName(sid)) : '(未定)')+'</div><span class="small">'+(sid ? range(tmin(t.slot.start), slotEnd(ex, t.slot)) : fmtT(tmin(t.slot.start))+'〜')+'</span></th>';
   });
-  // 別室
+  let body = '', lastKind = null;
+  people.forEach(p=>{
+    body += '<tr'+(lastKind && lastKind!==p.kind ? ' class="kind-sep"' : '')+'><th class="l">'+esc(p.name)+(p.kind==='サポーター'?'<span class="small">(サ)</span>':'')+'</th>'
+      + ts.map(t=>{
+        const r = roomOfTeacher(ex, p.id, t.slot.id), lv = leaveOf(ex, p.id, t.slot.id);
+        if(r) return '<td class="room'+(r.sep?' sep':'')+'">'+esc(r.name)+'</td>';
+        return lv ? '<td class="leave">'+esc(lv)+'</td>' : '<td></td>';
+      }).join('') + '<td class="c">'+(counts.get(p.id)||'')+'</td></tr>';
+    lastKind = p.kind;
+  });
+  // 別室の終わりの時刻(延長を含む)
   sepRooms().forEach((r, k)=>{
-    body += '<tr class="sep-room'+(k===0?' first':'')+'"><th class="l">'+esc(r.name)+'</th>' + ts.map(t=>{
-      const sts = roomStudentsAt(ex, r.roomId, t.day, t.slot);
-      const ids = proctorsAt(ex, t.slot.id, r.key);
-      if(!sts.length && !ids.length) return '<td class="off">―</td>';
-      // 学年ごとに、教科と終わりの時刻(延長を含む)をまとめる
-      const byG = {};
-      sts.forEach(sp=>{ const st = studentById(sp.studentId); const e = specialEnd(ex, sp, t.slot); (byG[st.grade] = byG[st.grade] || { n:0, ends:new Set() }).n++; byG[st.grade].ends.add(e); });
-      const info = Object.keys(byG).sort().map(g=>g+'年'+esc(subjectName(subjAt(ex, t.slot.id, +g)))+'〜'+[...byG[g].ends].sort((a,b)=>a-b).map(fmtT).join('/')+'('+byG[g].n+'人)').join('<br>');
-      return '<td>'+names(ids)+'<div class="small">'+info+'</div></td>';
-    }).join('') + '</tr>';
+    body += '<tr class="sep-end'+(k===0?' first':'')+'"><th class="l">'+esc(r.name)+'の終わり</th>' + ts.map(t=>{
+      const e = sepRoomEnd(ex, r, t);
+      return e!=null ? '<td>〜'+fmtT(e)+'<span class="small">('+roomStudentsAt(ex, r.roomId, t.day, t.slot).length+'人)</span></td>' : '<td class="off">―</td>';
+    }).join('') + '<td></td></tr>';
   });
   let html = pTitle(esc(ex.name)+'　試験監督表', schoolSub()+'　'+fmtJDate(todayYmd())+'作成')
-    + '<table class="p-table proctor-sheet"><thead><tr><th rowspan="2" class="room">教室</th>'+h1+'</tr><tr>'+h2+'</tr></thead><tbody>'+body+'</tbody></table>'
-    + '<p class="small">※ 別室の監督は、時間延長の終わりの時刻まで続けて見てください。別室の欄の時刻は、その部屋で受ける生徒の終わりの時刻です。</p>';
+    + '<table class="p-table proctor-sheet"><thead><tr><th rowspan="2" class="name">名前</th>'+h1+'<th rowspan="2" class="cnt">回数</th></tr><tr>'+h2+'</tr></thead><tbody>'+body+'</tbody></table>'
+    + '<p class="small">※ ます目の「1-1」などは、その時間に監督に入る教室です。別室の監督は、時間延長の終わりの時刻まで続けて見てください。</p>';
   // 別室・時間延長の生徒の表
   const sps = sortedSpecial(ex).filter(x=>x.p.room || x.p.extend || x.p.absentDays.length);
   if(optOf('proctor','students',true) && sps.length){
     html += '<h2 class="p-h2">別室・時間延長・欠席予定の生徒</h2><table class="p-table sp-sheet"><thead><tr><th>生徒</th><th>場所</th><th>延長</th>'
-      + ts.map(t=>'<th class="slot">'+(t.day.date?fmtMD(t.day.date):(t.di+1)+'日目')+'<br>'+esc(t.label)+'</th>').join('')+'<th>配慮の内容</th></tr></thead><tbody>'
+      + ts.map(t=>'<th class="slot">'+(t.day.date?fmtMD(t.day.date):(t.di+1)+'日目')+'<br>'+esc(subjectName(subjAt(ex, t.slot.id))||t.label)+'</th>').join('')+'<th>配慮の内容</th></tr></thead><tbody>'
       + sps.map(({p, st})=>'<tr><th class="l">'+st.grade+'-'+st.cls+'-'+st.no+' '+esc(st.name)+'</th><td>'+esc(p.room?roomName(p.room):'教室')+'</td><td>'+(p.extend?(Number(p.rate)||state.meta.extendRate)+'倍':'')+'</td>'
-        + ts.map(t=>{ if(isAbsentDay(p, t.day)) return '<td class="c">欠</td>'; const sid = subjAt(ex, t.slot.id, st.grade); if(!sid) return '<td class="off"></td>';
-          return '<td class="c">'+esc(subjectName(sid).slice(0,2))+'<br>〜'+fmtT(specialEnd(ex, p, t.slot))+'</td>'; }).join('')
+        + ts.map(t=>{ if(isAbsentDay(p, t.day)) return '<td class="c">欠</td>'; if(!subjAt(ex, t.slot.id)) return '<td class="off"></td>';
+          return '<td class="c">〜'+fmtT(specialEnd(ex, p, t.slot))+'</td>'; }).join('')
         + '<td>'+esc(p.note)+'</td></tr>').join('') + '</tbody></table>';
   }
-  const cl = proctorPeople().filter(p=>counts.get(p.id)).map(p=>esc(p.name)+' '+counts.get(p.id)).join('　');
-  if(cl) html += '<p class="small">監督の回数：'+cl+'</p>';
   return [{ html }];
 };
 
-// ---- 時程表(通常の教室) ----
+// ---- 時程表(通常の教室)。教科は全学年共通なので、1日1枚(クラスごとにも出せる) ----
 BUILD.roomTime = (ex)=>{
   const dsel = optOf('roomTime','day','all'), perClass = optOf('roomTime','perClass',false);
   const pages = [];
   ex.days.forEach((day, di)=>{
     if(dsel!=='all' && String(dsel)!==String(di)) return;
     if(!day.slots.length) return;
-    grades().forEach(g=>{
-      const targets = perClass ? classRooms().filter(r=>r.grade===g).map(r=>g+'年'+r.cls+'組') : [g+'年'];
-      const rows = sortedSlots(day).map(({s})=>{
-        if(s.kind==='other') return '<tr class="other"><td colspan="2">'+esc(s.label)+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
-        const sid = subjAt(ex, s.id, g);
-        if(!sid) return '';
-        return '<tr><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+esc(subjectName(sid))+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(slotEnd(ex, s, g))+'</td></tr>';
-      }).join('');
-      targets.forEach(name=>{
-        pages.push({ grow:true, cls:'poster', html:'<div class="poster-head"><div class="date">'+(day.date?fmtJDate(day.date):'日付未定')+'</div><div class="who">'+esc(name)+'</div></div>'
-          + '<div class="poster-sub">'+esc(ex.name)+'　'+(di+1)+'日目</div>'
-          + '<table class="poster-table">'+rows+'</table>' });
-      });
+    const rows = sortedSlots(day).map(({s})=>{
+      if(s.kind==='other') return '<tr class="other"><td colspan="2">'+esc(s.label)+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
+      const sid = subjAt(ex, s.id);
+      return '<tr><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+(sid ? esc(subjectName(sid)) : '')+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+(sid ? fmtT(slotEnd(ex, s)) : '')+'</td></tr>';
+    }).join('');
+    const targets = perClass ? classRooms().map(r=>r.grade+'年'+r.cls+'組') : [(di+1)+'日目'];
+    targets.forEach(name=>{
+      pages.push({ grow:true, cls:'poster', html:'<div class="poster-head"><div class="date">'+(day.date?fmtJDate(day.date):'日付未定')+'</div><div class="who">'+esc(name)+'</div></div>'
+        + '<div class="poster-sub">'+esc(ex.name)+(perClass ? '　'+(di+1)+'日目' : '')+'</div>'
+        + '<table class="poster-table">'+rows+'</table>' });
     });
   });
   return pages;
 };
 
-// ---- 時程表(別室) ----
+// ---- 時程表(別室)。延長の終わりの時刻も載せる(生徒の名前は載せない) ----
 BUILD.sepTime = (ex)=>{
   const dsel = optOf('sepTime','day','all');
   const pages = [];
@@ -231,21 +221,17 @@ BUILD.sepTime = (ex)=>{
       const sl = sortedSlots(day).map(x=>x.s);
       if(!sl.some(s=>s.kind==='test' && roomStudentsAt(ex, r.roomId, day, s).length)) return;   // この日この部屋を使わない
       const rows = sl.map(s=>{
-        if(s.kind==='other') return '<tr class="other"><td>'+esc(s.label)+'</td><td colspan="2" class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
-        const sts = roomStudentsAt(ex, r.roomId, day, s);
-        if(!sts.length) return '<tr class="none"><td class="lab">'+esc(slotLabel(day, s))+'</td><td colspan="2" class="small-cell">(この部屋では受けません)</td></tr>';
-        const byG = {};
-        sts.forEach(sp=>{ const st = studentById(sp.studentId); const g = st.grade; (byG[g] = byG[g] || []).push(sp); });
-        const lines = Object.keys(byG).sort().map(g=>{
-          const sid = subjAt(ex, s.id, +g), st0 = tmin(s.start), base = slotEnd(ex, s, +g);
-          const ext = [...new Set(byG[g].filter(sp=>sp.extend).map(sp=>specialEnd(ex, sp, s)))].sort((a,b)=>a-b);
-          const plain = byG[g].some(sp=>!sp.extend);
-          return '<div class="gline"><span class="g">'+g+'年</span> <b>'+esc(subjectName(sid))+'</b></div>'
-            // 延長の人だけ →「8:55 〜 10:05(延長)」、延長なしの人もいる →「8:55 〜 9:45　延長の人 〜10:05」
-            + '<div class="tline">'+fmtT(st0)+' 〜 '
-            + (!ext.length ? fmtT(base) : plain ? fmtT(base)+'　<span class="ext">延長の人 〜'+ext.map(fmtT).join(' / ')+'</span>' : '<span class="ext">'+ext.map(fmtT).join(' / ')+'</span>(延長)')+'</div>';
-        }).join('');
-        return '<tr><td class="lab">'+esc(slotLabel(day, s))+'</td><td colspan="2" class="multi">'+lines+'</td></tr>';
+        if(s.kind==='other') return '<tr class="other"><td colspan="2">'+esc(s.label)+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
+        const sts = roomStudentsAt(ex, r.roomId, day, s), sid = subjAt(ex, s.id);
+        if(!sts.length) return '<tr class="none"><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+esc(subjectName(sid))+'</td><td class="time">(この部屋では受けません)</td></tr>';
+        const st0 = tmin(s.start), base = slotEnd(ex, s);
+        const ext = [...new Set(sts.filter(sp=>sp.extend).map(sp=>specialEnd(ex, sp, s)))].sort((a,b)=>a-b);
+        const plain = sts.some(sp=>!sp.extend);
+        // 延長の人だけ →「8:55 〜 10:05(時間延長)」、延長なしの人もいる →「8:55 〜 9:45」と「延長の人 〜10:05」
+        const time = !ext.length ? fmtT(st0)+' 〜 '+fmtT(base)
+          : plain ? fmtT(st0)+' 〜 '+fmtT(base)+'<div class="extline">延長の人 〜'+ext.map(fmtT).join(' / ')+'</div>'
+          : fmtT(st0)+' 〜 <span class="ext">'+ext.map(fmtT).join(' / ')+'</span><div class="extline">(時間延長)</div>';
+        return '<tr><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+esc(subjectName(sid))+'</td><td class="time">'+time+'</td></tr>';
       }).join('');
       pages.push({ grow:true, cls:'poster sep', html:'<div class="poster-head"><div class="date">'+(day.date?fmtJDate(day.date):'日付未定')+'</div><div class="who">'+esc(r.name)+'</div></div>'
         + '<div class="poster-sub">'+esc(ex.name)+'　'+(di+1)+'日目　別室の時程</div><table class="poster-table">'+rows+'</table>' });
@@ -265,7 +251,7 @@ BUILD.special = (ex)=>{
     + '<td>'+esc(p.room?roomName(p.room):'教室')+'</td><td class="c">'+(p.extend?(Number(p.rate)||state.meta.extendRate)+'倍':'')+'</td><td class="note">'+esc(p.note)+'</td>'
     + ts.map(t=>{
       if(isAbsentDay(p, t.day)) return '<td class="absent"><span class="pre">欠席予定</span>'+(fill?'<div class="st">'+esc(ex.status[p.studentId+'|'+t.slot.id]||'')+'</div>':'')+'</td>';
-      const sid = subjAt(ex, t.slot.id, st.grade);
+      const sid = subjAt(ex, t.slot.id);
       if(!sid) return '<td class="off"></td>';
       return '<td><span class="pre">'+esc(subjectName(sid))+(p.extend?' 〜'+fmtT(specialEnd(ex, p, t.slot)):'')+'</span>'+(fill?'<div class="st">'+esc(ex.status[p.studentId+'|'+t.slot.id]||'')+'</div>':'')+'</td>';
     }).join('') + '</tr>').join('');
@@ -298,12 +284,12 @@ BUILD.attend = (ex, paperKey)=>{
     if(!sts.length) return;
     const dayGroups = perDay ? ex.days.map((d,di)=>[di]) : [ex.days.map((d,di)=>di)];
     dayGroups.forEach(dayIdxs=>{
-      const ts = testSlots(ex).filter(t=>dayIdxs.includes(t.di) && subjAt(ex, t.slot.id, r.grade));
+      const ts = testSlots(ex).filter(t=>dayIdxs.includes(t.di) && subjAt(ex, t.slot.id));
       if(!ts.length) return;
       let h1 = '', h2 = '', h3 = '';
       dayIdxs.forEach(di=>{ const n = ts.filter(t=>t.di===di).length; if(n) h1 += '<th colspan="'+n+'">'+esc(dayTitle(ex, di))+'</th>'; });
       ts.forEach(t=>{
-        const sid = subjAt(ex, t.slot.id, r.grade);
+        const sid = subjAt(ex, t.slot.id);
         h2 += '<th class="slot">'+esc(t.label)+'<br><b>'+esc(subjectName(sid))+'</b></th>';
         h3 += '<th class="small">'+esc(proctorsAt(ex, t.slot.id, r.key).map(teacherName).join('・'))+'</th>';
       });

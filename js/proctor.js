@@ -7,16 +7,17 @@ function leaveOf(ex, tid, slotId){ return ex.leave[tid+'|'+slotId] || ''; }
 // 表の見出し(日 → 時間)。休暇・監督・印刷で共通
 function slotHeadHtml(ex, withSubjects){
   const ts = testSlots(ex);
-  let h1 = '', h2 = '', h3 = '';
+  let h1 = '', h2 = '';
   ex.days.forEach((day, di)=>{
     const n = ts.filter(t=>t.di===di).length; if(!n) return;
     h1 += '<th colspan="'+n+'" class="dayh">'+esc(dayTitle(ex, di))+'</th>';
   });
   ts.forEach(t=>{
-    h2 += '<th class="dayl">'+esc(t.label)+'<div class="hint">'+fmtT(tmin(t.slot.start))+'〜</div></th>';
-    if(withSubjects) h3 += '<th class="subjh dayl">'+grades().map(g=>{ const s = subjAt(ex, t.slot.id, g); return s ? '<div>'+g+'年 '+esc(subjectName(s))+'</div>' : ''; }).join('')+'</th>';
+    const sid = subjAt(ex, t.slot.id), end = slotEnd(ex, t.slot);
+    h2 += '<th class="dayl">'+esc(t.label)+(withSubjects ? '<div class="subjname">'+(sid ? esc(subjectName(sid)) : '(未定)')+'</div>' : '')
+      + '<div class="hint">'+fmtT(tmin(t.slot.start))+'〜'+(withSubjects && end!=null ? fmtT(end) : '')+'</div></th>';
   });
-  return { ts, h1, h2, h3 };
+  return { ts, h1, h2 };
 }
 
 //////////////////////// 休暇 ////////////////////////
@@ -63,10 +64,11 @@ ACTIONS.leaveDay = el=>{
 //  - 別室は、その時間にその部屋で受ける生徒がいるときだけ割り当てる。別室の監督は延長の終わりまで続けて見る。
 function roomsForProctor(){ return classRooms().concat(sepRooms()); }
 function roomNeeded(ex, room, t){
-  if(!room.sep) return !!subjAt(ex, t.slot.id, room.grade);
+  if(!room.sep) return !!subjAt(ex, t.slot.id);
   return roomStudentsAt(ex, room.roomId, t.day, t.slot).length > 0;
 }
-function subjectsInSlot(ex, slotId){ return new Set(grades().map(g=>subjAt(ex, slotId, g)).filter(Boolean)); }
+// その時間のテストの教科(全学年共通なので1つ。Set で返すのは担当教科との照らし合わせに使うため)
+function subjectsInSlot(ex, slotId){ const s = subjAt(ex, slotId); return new Set(s ? [s] : []); }
 function autoAssign(ex, onlyEmpty){
   const people = proctorPeople().filter(t=>!t.noProctor);
   const counts = new Map(people.map(t=>[t.id, 0]));
@@ -103,24 +105,27 @@ function autoAssign(ex, onlyEmpty){
   });
   return short;
 }
-// 割り当ての気になるところ。cell[key] = 'warn'|'err'、list = 文の一覧
+// 割り当ての気になるところ。cell['先生id|時間id'] = 'warn'|'err'、list = 文の一覧
 function proctorCheck(ex){
   const cell = {}, list = [];
   const rooms = roomsForProctor();
   testSlots(ex).forEach(t=>{
-    const seen = new Map(), subs = subjectsInSlot(ex, t.slot.id), where = dayTitle(ex, t.di)+' '+t.label;
+    const subs = subjectsInSlot(ex, t.slot.id), where = dayTitle(ex, t.di)+' '+t.label+'('+(subjectName(subjAt(ex, t.slot.id))||'教科未定')+')';
+    const where1 = new Map();   // 先生 → 入っている教室
     rooms.forEach(r=>{
-      const key = t.slot.id+'|'+r.key, ids = proctorsAt(ex, t.slot.id, r.key);
-      if(roomNeeded(ex, r, t) && !ids.length){ cell[key] = 'warn'; list.push(where+'：'+r.name+'の監督が決まっていません。'); }
-      ids.forEach(id=>{
-        const p = teacherById(id); if(!p) return;
-        if(seen.has(id)){ cell[key] = cell[seen.get(id)] = 'err'; list.push(where+'：'+p.name+'が2か所('+rooms.find(x=>x.key===seen.get(id).split('|')[1]).name+'・'+r.name+')に入っています。'); }
-        seen.set(id, key);
-        const lv = leaveOf(ex, id, t.slot.id);
-        if(lv){ cell[key] = 'err'; list.push(where+'：'+p.name+'は'+lv+'です。'); }
-        else if(p.subjects.some(s=>subs.has(s))){ cell[key] = cell[key]||'warn'; list.push(where+'：'+p.name+'は、この時間に担当教科('+p.subjects.filter(s=>subs.has(s)).map(subjectName).join('・')+')のテストがあります。'); }
-        if(p.noProctor){ cell[key] = cell[key]||'warn'; list.push(where+'：'+p.name+'は「監督なし」にしている人です。'); }
-      });
+      const ids = proctorsAt(ex, t.slot.id, r.key);
+      if(roomNeeded(ex, r, t) && !ids.length) list.push(where+'：'+r.name+'の監督が決まっていません。');
+      if(!r.sep && ids.length>1) list.push(where+'：'+r.name+'に'+ids.length+'人入っています。');
+      ids.forEach(id=>{ if(!where1.has(id)) where1.set(id, []); where1.get(id).push(r); });
+    });
+    where1.forEach((rs, id)=>{
+      const p = teacherById(id); if(!p) return;
+      const key = id+'|'+t.slot.id;
+      if(rs.length>1){ cell[key] = 'err'; list.push(where+'：'+p.name+'が'+rs.length+'か所('+rs.map(r=>r.name).join('・')+')に入っています。'); }
+      const lv = leaveOf(ex, id, t.slot.id);
+      if(lv){ cell[key] = 'err'; list.push(where+'：'+p.name+'は'+lv+'です。'); }
+      else if(p.subjects.some(s=>subs.has(s))){ cell[key] = cell[key]||'warn'; list.push(where+'：'+p.name+'は、担当教科のテストの時間です。'); }
+      if(p.noProctor){ cell[key] = cell[key]||'warn'; list.push(where+'：'+p.name+'は「監督なし」にしている人です。'); }
     });
   });
   return { cell, list };
@@ -130,56 +135,73 @@ function proctorCounts(ex){
   Object.values(ex.proctors).forEach(a=>a.forEach(id=>c.set(id, (c.get(id)||0)+1)));
   return c;
 }
+// その時間に、その先生が入っている教室(なければ null)
+function roomOfTeacher(ex, tid, slotId){
+  return roomsForProctor().find(r=>proctorsAt(ex, slotId, r.key).includes(tid)) || null;
+}
+// 別室の、その時間の終わりの時刻(延長の生徒のうち一番遅い時刻)
+function sepRoomEnd(ex, r, t){
+  const ends = roomStudentsAt(ex, r.roomId, t.day, t.slot).map(sp=>specialEnd(ex, sp, t.slot)).filter(e=>e!=null);
+  return ends.length ? Math.max(...ends) : null;
+}
+
+//////////////////////// 監督タブ(縦に先生、横にテストの時間。ます目に入る教室) ////////////////////////
 TABS.proctor = { render(){
   const ex = curExam();
   if(!ex){ $('tab-proctor').innerHTML = needExamHtml(); return; }
-  const { ts, h1, h2, h3 } = slotHeadHtml(ex, true);
+  const { ts, h1, h2 } = slotHeadHtml(ex, true);
   const d = dis();
   let html = '<div class="toolbar"><button class="primary edit-act" data-act="autoProctor" data-mode="empty">自動で案を作る(空いている所だけ)</button>'
     + '<button class="edit-act" data-act="autoProctor" data-mode="all">全部作り直す</button>'
     + '<button class="danger edit-act" data-act="clearProctor">全部消す</button>'
     + '<button data-act="printForm" data-form="proctor">🖨 監督表を印刷</button></div>'
-    + '<p class="hint">自動の案は、休暇・出張の人を外し、担当教科のテストの時間をなるべく避け、サポーターを別室に、教員を教室(所属学年を優先)に、回数がそろうように入れます。案を作ったあと、手で直せます。別室の「補助」の欄は2人目を入れたいときに使います。</p>';
+    + '<p class="hint">ます目で、その時間に入る教室を選びます。自動の案は、休暇・出張の人を外し、担当教科のテストの時間をなるべく避け、サポーターを別室に、教員を教室(所属学年を優先)に、回数がそろうように入れます。案を作ったあと、手で直せます。</p>';
   if(!ts.length){ $('tab-proctor').innerHTML = html + '<div class="banner">「時間割」タブで、テストの時間を入れてください。</div>'; return; }
+  const people = proctorPeople();
+  if(!people.length){ $('tab-proctor').innerHTML = html + '<div class="banner">「設定」タブで、先生・サポーターを入れてください。</div>'; return; }
   const chk = proctorCheck(ex), counts = proctorCounts(ex);
   html += warningsHtml(chk.list);
-  const people = proctorPeople();
-  const opts = (sel, t) => '<option value="">―</option>' + people.map(p=>{
-    const lv = leaveOf(ex, p.id, t.slot.id), own = p.subjects.some(s=>subjectsInSlot(ex, t.slot.id).has(s));
-    return '<option value="'+esc(p.id)+'"'+(p.id===sel?' selected':'')+'>'+esc(p.name)+(p.kind==='サポーター'?'(サ)':'')+(lv?'【'+lv+'】':own?'(教科)':'')+'</option>';
-  }).join('');
-  html += '<div class="scroll-x"><table class="grid proctor"><thead><tr><th rowspan="3">教室</th>'+h1+'</tr><tr>'+h2+'</tr><tr>'+h3+'</tr></thead><tbody>';
-  let lastGrade = null;
-  roomsForProctor().forEach(r=>{
-    const sepRow = r.sep && lastGrade!=='sep';
-    html += '<tr class="'+(r.sep?'sep-room':'')+((r.sep?sepRow:lastGrade!==r.grade && lastGrade!==null)?' sep':'')+'"><th class="l">'+esc(r.sep ? r.name : r.grade+'年'+r.cls+'組')+'</th>';
-    lastGrade = r.sep ? 'sep' : r.grade;
+  const rooms = roomsForProctor();
+  html += '<div class="scroll-x"><table class="grid proctor"><thead><tr><th rowspan="2">名前</th>'+h1+'<th rowspan="2">回数</th></tr><tr>'+h2+'</tr></thead><tbody>';
+  let lastKind = null;
+  people.forEach(p=>{
+    html += '<tr class="'+(p.kind==='サポーター'?'supporter':'')+(lastKind && lastKind!==p.kind?' sep':'')+'"><th class="l">'+esc(p.name)+(p.noProctor?' <span class="hint">(監督なし)</span>':'')+'</th>';
+    lastKind = p.kind;
     ts.forEach(t=>{
-      const key = t.slot.id+'|'+r.key, ids = proctorsAt(ex, t.slot.id, r.key);
-      if(!roomNeeded(ex, r, t) && !ids.length){ html += '<td class="off">'+(r.sep?'使わない':'')+'</td>'; return; }
-      let inner = '<select data-act-proctor="'+esc(key)+'" data-idx="0"'+d+'>'+opts(ids[0], t)+'</select>';
-      if(r.sep){
-        inner += '<select data-act-proctor="'+esc(key)+'" data-idx="1"'+d+' title="2人目(補助)">'+opts(ids[1], t).replace('>―<','>補助なし<')+'</select>';
-        const ends = roomStudentsAt(ex, r.roomId, t.day, t.slot).map(sp=>specialEnd(ex, sp, t.slot)).filter(e=>e!=null);
-        if(ends.length) inner += '<div class="hint">〜'+fmtT(Math.max(...ends))+'まで('+ends.length+'人)</div>';
-      }
-      html += '<td class="'+(chk.cell[key]||'')+'">'+inner+'</td>';
+      const cur = roomOfTeacher(ex, p.id, t.slot.id), lv = leaveOf(ex, p.id, t.slot.id);
+      const opts = '<option value="">'+(lv ? lv : '')+'</option>' + rooms.map(r=>{
+        const need = roomNeeded(ex, r, t);
+        if(!need && (!cur || cur.key!==r.key)) return '';
+        return '<option value="'+esc(r.key)+'"'+(cur && cur.key===r.key?' selected':'')+'>'+esc(r.name)+'</option>';
+      }).join('');
+      const cls = (chk.cell[p.id+'|'+t.slot.id]||'') + (lv && !cur ? ' leave' : '') + (cur ? ' has' : '');
+      html += '<td class="'+cls+'"><select data-pt="'+esc(p.id+'|'+t.slot.id)+'"'+d+'>'+opts+'</select></td>';
     });
-    html += '</tr>';
+    html += '<td class="c"><b>'+(counts.get(p.id)||0)+'</b></td></tr>';
+  });
+  // 監督が決まっていない教室
+  html += '<tr class="sep"><th class="l">決まっていない教室</th>' + ts.map(t=>{
+    const empty = rooms.filter(r=>roomNeeded(ex, r, t) && !proctorsAt(ex, t.slot.id, r.key).length).map(r=>r.name);
+    return '<td class="'+(empty.length?'warn':'ok-cell')+' small-cell">'+(empty.length ? esc(empty.join(' ')) : '✓')+'</td>';
+  }).join('') + '<td></td></tr>';
+  // 別室の時刻
+  sepRooms().forEach(r=>{
+    html += '<tr><th class="l">'+esc(r.name)+'の終わり</th>' + ts.map(t=>{ const e = sepRoomEnd(ex, r, t), n = roomStudentsAt(ex, r.roomId, t.day, t.slot).length;
+      return e!=null ? '<td class="small-cell">〜'+fmtT(e)+'('+n+'人)</td>' : '<td class="off">使わない</td>'; }).join('') + '<td></td></tr>';
   });
   html += '</tbody></table></div>';
-  // 回数
-  html += '<section><h2>監督の回数</h2><div class="count-list">' + people.map(p=>'<span class="chip'+(p.kind==='サポーター'?' supporter':'')+'">'+esc(p.name)+' <b>'+(counts.get(p.id)||0)+'</b>'+(p.noProctor?'(監督なし)':'')+'</span>').join('') + '</div></section>';
   $('tab-proctor').innerHTML = html;
 }};
+// ます目で教室を選んだとき: その時間にその先生が入っていた教室から外し、選んだ教室に入れる
 document.addEventListener('change', e=>{
-  const el = e.target.closest('[data-act-proctor]');
+  const el = e.target.closest('[data-pt]');
   if(!el || !editing) return;
-  const ex = curExam(), key = el.dataset.actProctor, idx = +el.dataset.idx;
-  const a = (ex.proctors[key]||[]).slice();
-  a[idx] = el.value;
-  const clean = a.filter(Boolean);
-  if(clean.length) ex.proctors[key] = clean; else delete ex.proctors[key];
+  const ex = curExam(), [tid, slotId] = el.dataset.pt.split('|');
+  roomsForProctor().forEach(r=>{
+    const key = slotId+'|'+r.key, a = (ex.proctors[key]||[]).filter(id=>id!==tid);
+    if(a.length) ex.proctors[key] = a; else delete ex.proctors[key];
+  });
+  if(el.value){ const key = slotId+'|'+el.value; ex.proctors[key] = (ex.proctors[key]||[]).concat(tid); }
   markDirty(); setTimeout(renderAll, 0);
 });
 ACTIONS.autoProctor = el=>{

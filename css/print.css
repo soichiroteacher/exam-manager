@@ -103,3 +103,17 @@ table.poster-table tr.none td{ color:#888; font-size:30px; }
 .attend-sheet td.pre-cell{ font-size:11px; color:#333; background:#f2f2f2; }
 .attend-sheet tr.foot th{ background:#f3f3f3; }
 .attend-sheet tr.foot td, .attend-sheet tr.foot th{ height:28px; border-top:2px solid #000; }
+
+/* 監督表(縦に先生、横に教科) */
+.proctor-sheet th.name{ width:120px; }
+.proctor-sheet th.cnt{ width:34px; }
+.proctor-sheet th.slot .subjname{ font-size:16px; font-weight:bold; }
+.proctor-sheet td.room{ font-size:15px; font-weight:bold; }
+.proctor-sheet td.room.sep{ background:#e8f2e8; }
+.proctor-sheet td.leave{ font-size:11px; color:#555; background:repeating-linear-gradient(135deg, #eee 0 3px, #fff 3px 6px); }
+.proctor-sheet tr.kind-sep > *{ border-top:2px solid #000; }
+.proctor-sheet tr.sep-end > *{ background:#f3f3f3; font-size:12px; }
+.proctor-sheet tr.sep-end.first > *{ border-top:2px solid #000; }
+/* 別室の時程表 */
+.poster.sep .extline{ font-size:40px; }
+.poster.sep td.time .ext{ border-bottom:5px double #000; }

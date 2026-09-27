@@ -87,7 +87,7 @@ ACTIONS.delSubject = el=>{
   if(!confirm('教科「'+s.name+'」を削除します。'+(used ? '\nテストの時間割に入っている分も消えます。' : '')+'\nよろしいですか？')) return;
   state.subjects.splice(+el.dataset.i, 1);
   state.teachers.forEach(t=> t.subjects = t.subjects.filter(x=>x!==s.id));
-  state.exams.forEach(x=>{ Object.keys(x.schedule).forEach(k=>{ if(x.schedule[k]===s.id) delete x.schedule[k]; }); Object.values(x.subjects).forEach(m=> delete m[s.id]); });
+  state.exams.forEach(x=>{ Object.keys(x.schedule).forEach(k=>{ if(x.schedule[k]===s.id) delete x.schedule[k]; }); delete x.subjects[s.id]; });
   markDirty(); renderAll();
 };
 ACTIONS.addTeacher = ()=>{
