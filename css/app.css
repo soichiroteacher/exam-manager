@@ -154,3 +154,20 @@ table.tt.sep td{ min-width:130px; }
 table.status .range{ font-size:13px; font-weight:bold; font-variant-numeric:tabular-nums; }
 table.status td.has{ background:#eef4fb; }
 table.status input[type=time]{ font-size:13px; padding:1px 3px; }
+
+/* ===== 点数・集計 ===== */
+.score-pick select{ font-size:16px; font-weight:bold; }
+table.score-table td{ padding:2px 6px; }
+table.score-table .score-in{ width:80px; text-align:right; font-size:16px; }
+table.score-table td.absent .score-in{ color:var(--warn); font-weight:bold; }
+table.score-table td.bad{ background:#fbd3cf; }
+.warn-text{ color:var(--warn); font-weight:bold; }
+table.progress td{ min-width:48px; font-size:13px; }
+table.stats td, table.stats th{ font-size:14px; }
+table.stats tr.total th, table.stats tr.total td, table.dist tr.total > *{ background:#f3f6fa; border-top:2px solid var(--line-strong); }
+table.dist td.bar{ width:220px; padding:2px 4px; }
+table.dist td.bar span{ display:block; height:14px; background:var(--accent); border-radius:2px; }
+table.ranking td{ font-size:14px; padding:2px 6px; }
+table.ranking td.absent{ color:var(--warn); }
+table.ranking .tot{ background:#f3f6fa; font-weight:bold; border-left:2px solid var(--line-strong); }
+#tab-stats > section{ border:1px solid var(--line); border-radius:8px; padding:12px 16px; margin-bottom:14px; }

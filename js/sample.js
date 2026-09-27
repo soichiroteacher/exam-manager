@@ -69,5 +69,20 @@ function makeSample(){
   s.exams = [prev, ex];
   autoAssign(prev, false);
   autoAssign(ex, false);
+  // 架空の点数(生徒ごとの得意さ + ばらつき)。欠席予定の日の教科は「欠」。今の回は、3年の英語をまだ入力していない例にする
+  const ability = new Map(s.students.map(st=>[st.id, 0.35 + rnd(55)/100]));
+  [prev, ex].forEach(x=>{
+    const ts = testSlots(x);
+    s.students.forEach(st=>{
+      examSubjects(x).forEach(sb=>{
+        if(x===ex && sb.id==='s5' && st.grade===3) return;
+        const t = ts.find(tt=>subjAt(x, tt.slot.id)===sb.id);
+        const sp = x.special.find(p=>p.studentId===st.id);
+        const max = Number(examSubj(x, sb.id).max) || 100;
+        let v = (sp && t && isAbsentDay(sp, t.day)) ? '欠' : Math.max(0, Math.min(max, Math.round((ability.get(st.id) + (rnd(31)-15)/100) * max)));
+        (x.scores[st.id] = x.scores[st.id] || {})[sb.id] = v;
+      });
+    });
+  });
   return s;
 }
