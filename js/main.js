@@ -40,4 +40,4 @@ async function boot(){
     }catch(e){ alert('開けませんでした。ファイルが移動・削除されていないか確かめてください。\n'+e.message); }
   });
 }
-boot();
+boot().then(maybeAutoTour);   // はじめて開いたときは、画面の案内を出す(tour.js)
