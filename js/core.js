@@ -53,6 +53,7 @@ function emptyState(fy){
       extendRate: CONFIG.defaultExtendRate,         // 時間延長の倍率の基本
       extendPlus: CONFIG.defaultExtendPlus,         // 「+〇分」で延長するときの分の基本
       editPasswordHash: '',
+      rosterSource: null,                           // 最後に読み込んだ名簿の元 { fileName, importedAt }(名簿は roster.js)
       savedAt: null, savedBy: '',
     },
     subjects: CONFIG.defaultSubjects.map(([name, core5], i)=>({ id:'s'+(i+1), name, core5 })),
@@ -92,8 +93,9 @@ function normalizeState(o){
   o.subjects = o.subjects.filter(s=>s && s.id).map(s=>({ id:String(s.id), name:String(s.name||''), core5:!!s.core5 }));
   o.teachers = (Array.isArray(o.teachers)?o.teachers:[]).filter(t=>t && t.id).map(t=>Object.assign({ name:'', kind:'教員', grade:0, subjects:[], noProctor:false }, t));
   o.teachers.forEach(t=>{ if(!CONFIG.teacherKinds.includes(t.kind)) t.kind = '教員'; t.grade = Number(t.grade)||0; if(!Array.isArray(t.subjects)) t.subjects = []; });
-  o.students = (Array.isArray(o.students)?o.students:[]).filter(s=>s && s.id).map(s=>Object.assign({ grade:1, cls:1, no:1, name:'', kana:'' }, s));
-  o.students.forEach(s=>{ s.grade = Number(s.grade)||1; s.cls = Number(s.cls)||1; s.no = Number(s.no)||0; });
+  o.students = (Array.isArray(o.students)?o.students:[]).filter(s=>s && s.id).map(s=>Object.assign({ studentNo:'', grade:1, cls:1, no:1, name:'', kana:'', status:'在籍', statusDate:'' }, s));
+  o.students.forEach(s=>{ s.grade = Number(s.grade)||1; s.cls = Number(s.cls)||1; s.no = Number(s.no)||0; s.studentNo = String(s.studentNo||''); });
+  if(o.meta.rosterSource && typeof o.meta.rosterSource!=='object') o.meta.rosterSource = null;
   o.exams = (Array.isArray(o.exams)?o.exams:[]).filter(x=>x && x.id);
   const saved = state; state = o;   // normalizeExam は state の学年・教科を使うため、一時的に差し替える
   try{ o.exams.forEach(normalizeExam); } finally { state = saved; }
@@ -576,5 +578,5 @@ $('nOk').addEventListener('click', async ()=>{
   lastLockStamp = Date.now();
   view.tab = 'settings'; savePref();
   renderAll();
-  alert('作りました。はじめに「設定」で学年・クラス数と先生を入れ、「名簿」に生徒の名簿を貼り付けてください。');
+  alert('作りました。はじめに「設定」で学年・クラス数と先生を入れ、「名簿」でアカウント管理アプリの名簿(アカウント名簿.json)を読み込んでください。');
 });

@@ -18,7 +18,8 @@ function parseScore(text, max){
   if(n<0 || n>max) return { error:'0〜'+max+'点で入れてください' };
   return n;
 }
-function studentsOf(grade, cls){ return state.students.filter(s=>s.grade===grade && (!cls || s.cls===cls)).sort(sortStudents); }
+// 学年・組の生徒。ふつうは在籍している生徒だけ。ex を渡すと、その回の点数がある転出などの生徒も入れる(記録を残すため)
+function studentsOf(grade, cls, ex){ return state.students.filter(s=>s.grade===grade && (!cls || s.cls===cls) && (isEnrolled(s) || (ex && ex.scores[s.id]))).sort((a,b)=>(isEnrolled(a)?0:1)-(isEnrolled(b)?0:1) || sortStudents(a,b)); }
 // 合計: 教科のうち1つでも欠席・未入力があれば、合計は出すが「そろっていない」印を付け、順位には入れない
 function totalOf(ex, stId, subs){
   let sum = 0, done = 0, absent = 0;
@@ -49,7 +50,7 @@ function bands(max){
 // 学年のまとめ(集計タブ・印刷で共通)
 function gradeSummary(ex, grade){
   const subs = examSubjects(ex), core = coreSubjects(ex);
-  const sts = studentsOf(grade);
+  const sts = studentsOf(grade, 0, ex);
   const hasAll = subs.length > core.length;   // 5教科と全教科が違うときだけ「全教科」を出す
   const rows = sts.map(st=>({ st, t5: totalOf(ex, st.id, core), tA: totalOf(ex, st.id, subs) }));
   const r5 = rankMap(rows.filter(r=>r.t5.complete).map(r=>({ id:r.st.id, value:r.t5.sum })));
@@ -83,7 +84,7 @@ TABS.score = { render(){
   const g = view.scoreGrade, gi = state.meta.grades.find(x=>x.grade===g);
   if(view.scoreCls && view.scoreCls > gi.classes) view.scoreCls = 0;
   const cls = view.scoreCls || 0, sid = view.scoreSubj, max = Number(examSubj(ex, sid).max) || 100;
-  const sts = studentsOf(g, cls), d = dis();
+  const sts = studentsOf(g, cls, ex), d = dis();
   let html = '<div class="toolbar score-pick">'
     + '<label>教科 <select id="scSubj">'+subs.map(s=>'<option value="'+esc(s.id)+'"'+(s.id===sid?' selected':'')+'>'+esc(s.name)+'</option>').join('')+'</select></label>'
     + '<span class="seg">'+gs.map(x=>'<button data-act="scoreGrade" data-g="'+x+'"'+(x===g?' class="active"':'')+'>'+x+'年</button>').join('')+'</span>'
@@ -99,6 +100,11 @@ TABS.score = { render(){
   let lastCls = null;
   sts.forEach((s, k)=>{
     const v = scoreOf(ex, s.id, sid);
+    if(!isEnrolled(s)){
+      // 転出などの生徒: 記録は見せるが、入力欄は閉じる(貼り付けの順番にも入れない)
+      html += '<tr class="left"><td class="c">'+s.cls+'</td><td class="c">'+s.no+'</td><td class="nowrap">'+esc(s.name)+' <span class="hint">('+esc(s.status)+')</span></td><td class="c">'+(v===undefined?'':esc(v))+'</td></tr>';
+      return;
+    }
     html += '<tr'+(lastCls!==null && lastCls!==s.cls?' class="sep"':'')+'><td class="c">'+s.cls+'</td><td class="c">'+s.no+'</td><td class="nowrap">'+esc(s.name)+'</td>'
       + '<td class="'+(v==='欠'?'absent':'')+'"><input type="text" inputmode="numeric" class="score-in" data-score="'+esc(s.id)+'" data-k="'+k+'" data-focus="sc-'+esc(s.id)+'" value="'+(v===undefined?'':esc(v))+'" autocomplete="off"'+d+'></td></tr>';
     lastCls = s.cls;

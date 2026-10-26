@@ -311,7 +311,7 @@ BUILD.attend = (ex, paperKey)=>{
   const perDay = paperKey==='A4P';
   const pages = [];
   rooms.forEach(r=>{
-    const sts = state.students.filter(s=>s.grade===r.grade && s.cls===r.cls).sort(sortStudents);
+    const sts = state.students.filter(s=>s.grade===r.grade && s.cls===r.cls && isEnrolled(s)).sort(sortStudents);
     if(!sts.length) return;
     const dayGroups = perDay ? ex.days.map((d,di)=>[di]) : [ex.days.map((d,di)=>di)];
     dayGroups.forEach(dayIdxs=>{

@@ -66,7 +66,7 @@ BUILD.report = (ex)=>{
   rooms.forEach(r=>{
     const c = caches[r.grade] = caches[r.grade] || gradeCache(ex, r.grade);
     if(!c.sum.subs.length) return;
-    studentsOf(r.grade, r.cls).forEach(st=>{
+    studentsOf(r.grade, r.cls).forEach(st=>{   // 個票は在籍している生徒だけ
       const row = c.byId.get(st.id);
       if(!c.sum.subs.some(s=>scoreOf(ex, st.id, s.id)!==undefined)) return;   // 点数が1つもない生徒は出さない
       const trs = c.keys.map(k=>{

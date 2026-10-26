@@ -20,7 +20,7 @@ TABS.special = { render(){
   // --- 追加する欄 ---
   const pickG = Number(view.addGrade) || gs[0], pickC = Number(view.addCls) || 1;
   const gInfo = state.meta.grades.find(g=>g.grade===pickG) || state.meta.grades[0];
-  const cands = state.students.filter(s=>s.grade===pickG && s.cls===pickC && !ex.special.some(p=>p.studentId===s.id)).sort(sortStudents);
+  const cands = state.students.filter(s=>s.grade===pickG && s.cls===pickC && isEnrolled(s) && !ex.special.some(p=>p.studentId===s.id)).sort(sortStudents);
   let html = '<div class="toolbar edit-only add-special">生徒を追加：'
     + '<select id="spGrade">'+gs.map(g=>'<option value="'+g+'"'+(g===pickG?' selected':'')+'>'+g+'年</option>').join('')+'</select>'
     + '<select id="spCls">'+Array.from({length:gInfo.classes},(_,i)=>i+1).map(c=>'<option value="'+c+'"'+(c===pickC?' selected':'')+'>'+c+'組</option>').join('')+'</select>'

@@ -12,7 +12,8 @@ function makeSample(){
   const mei = ['あおい','さくら','はると','ゆい','そうた','ひなた','りく','めい','ゆうと','こはる','いつき','みお','かいと','ことね','れん','ゆな','たくみ','あかり','しょう','まな','だいち','ひより','けんた','りこ','ゆうき'];
   let seed = 7; const rnd = n => { seed = (seed*9301+49297) % 233280; return Math.floor(seed/233280*n); };
   s.meta.grades.forEach(g=>{ for(let c=1;c<=g.classes;c++){ for(let no=1;no<=28;no++){
-    s.students.push({ id:'st'+g.grade+'_'+c+'_'+no, grade:g.grade, cls:c, no, name:sei[rnd(sei.length)]+' '+mei[rnd(mei.length)], kana:'' });
+    // 学籍番号(架空): 入学年度 + 3けたの通し番号。名簿の元(アカウント管理アプリ)から読み込んだときと同じ形
+    s.students.push({ id:'st'+g.grade+'_'+c+'_'+no, studentNo:String(fy-g.grade+1)+String((c-1)*28+no).padStart(3,'0'), grade:g.grade, cls:c, no, name:sei[rnd(sei.length)]+' '+mei[rnd(mei.length)], kana:'', status:'在籍', statusDate:'' });
   } } });
   // 先生(架空)。[名前, 担当教科, 所属学年, 種別, 監督なし]
   const T = [
@@ -69,11 +70,14 @@ function makeSample(){
   s.exams = [prev, ex];
   autoAssign(prev, false);
   autoAssign(ex, false);
+  // 転出の例: 1年3組28番は、前の回(1学期期末)のあとに転出した(前の回の点数は残る)
+  const moved = s.students.find(st=>st.id==='st1_3_28'); moved.status = '転出'; moved.statusDate = ymd(new Date(pd.getTime()+30*86400000));
   // 架空の点数(生徒ごとの得意さ + ばらつき)。欠席予定の日の教科は「欠」。今の回は、3年の英語をまだ入力していない例にする
   const ability = new Map(s.students.map(st=>[st.id, 0.35 + rnd(55)/100]));
   [prev, ex].forEach(x=>{
     const ts = testSlots(x);
     s.students.forEach(st=>{
+      if(x===ex && !isEnrolled(st)) return;   // 転出した生徒は、今の回の点数はない
       examSubjects(x).forEach(sb=>{
         if(x===ex && sb.id==='s5' && st.grade===3) return;
         const t = ts.find(tt=>subjAt(x, tt.slot.id)===sb.id);
