@@ -28,7 +28,7 @@ function readAccountManagerRoster(obj){
     if(!no){ if(status==='在籍') skipped.push(label+'(学籍番号がない)'); return; }
     const gc = parseClassName(s.className), num = toNum(s.number);
     if(status==='在籍' && (!gc || !(num>=0))){ skipped.push(label+'(クラスか出席番号が読めない)'); return; }
-    list.push({ studentNo:no, name, grade: gc ? gc.grade : 0, cls: gc ? gc.cls : 0, no: num>=0 ? num : 0, status, statusDate:String(s.statusDate||'') });
+    list.push({ studentNo:no, name, kana:String(s.kana||'').trim(), grade: gc ? gc.grade : 0, cls: gc ? gc.cls : 0, no: num>=0 ? num : 0, status, statusDate:String(s.statusDate||'') });
   });
   return { list, skipped };
 }
@@ -50,7 +50,7 @@ function planRosterImport(incoming){
     if(was && n.status!=='在籍'){ plan.toLeft.push({ s, n }); return; }
     if(n.status!=='在籍'){ if(s.status!==n.status) plan.update.push({ s, n }); else plan.same++; return; }
     if(s.grade!==n.grade) plan.gradeChange.push({ s, n });
-    if(s.grade!==n.grade || s.cls!==n.cls || s.no!==n.no || s.name!==n.name || !was) plan.update.push({ s, n }); else plan.same++;
+    if(s.grade!==n.grade || s.cls!==n.cls || s.no!==n.no || s.name!==n.name || (s.kana||'')!==n.kana || !was) plan.update.push({ s, n }); else plan.same++;
   });
   // 名簿の元にいない、在籍のままの生徒(消さずに印を付ける)
   state.students.forEach(s=>{ if(!used.has(s.id) && isEnrolled(s)) plan.missing.push(s); });
@@ -64,9 +64,9 @@ function planRosterImport(incoming){
 }
 function applyRosterImport(plan, fileName){
   plan.linked.forEach(({ s, n })=>{ s.studentNo = n.studentNo; });
-  plan.add.forEach(n=> state.students.push({ id:newId('st'), studentNo:n.studentNo, grade:n.grade, cls:n.cls, no:n.no, name:n.name, kana:'', status:'在籍', statusDate:'' }));
+  plan.add.forEach(n=> state.students.push({ id:newId('st'), studentNo:n.studentNo, grade:n.grade, cls:n.cls, no:n.no, name:n.name, kana:n.kana, status:'在籍', statusDate:'' }));
   plan.update.concat(plan.toLeft).forEach(({ s, n })=>{
-    s.studentNo = n.studentNo; s.name = n.name; s.status = n.status; s.statusDate = n.statusDate;
+    s.studentNo = n.studentNo; s.name = n.name; s.kana = n.kana; s.status = n.status; s.statusDate = n.statusDate;
     if(n.status==='在籍'){ s.grade = n.grade; s.cls = n.cls; s.no = n.no; }   // 転出・卒業の生徒は、いたときの学年・組・番号のまま残す
   });
   plan.missing.forEach(s=>{ s.status = '名簿の元にいない'; });
@@ -86,7 +86,7 @@ function rosterPlanHtml(plan, skipped){
   let h = '<p>アカウント管理アプリの名簿と比べた結果です。よければ「決定」を押してください。</p>';
   if(plan.gradeChange.length) h += '<div class="plan-box warn"><b>⚠ 学年が変わる生徒が '+plan.gradeChange.length+'人います。</b><p>アカウント管理アプリで年度更新(進級)をしたあとの名簿かもしれません。このデータファイルは '+state.meta.fiscalYear+'年度のものです。新しい年度の名簿は、新しい年度のデータファイルを作ってから読み込んでください。</p></div>';
   h += box('新しく加わる生徒(転入など)', plan.add.map(nl))
-    + box('組・番号・氏名などが変わる生徒', plan.update.map(({s,n})=>sl(s)+' → '+(n.status==='在籍' ? nl(n) : esc(n.status))))
+    + box('組・番号・氏名・ふりがななどが変わる生徒', plan.update.map(({s,n})=>sl(s)+' → '+(n.status==='在籍' ? nl(n) : esc(n.status))+((s.kana||'')!==n.kana ? '(ふりがな：'+esc(n.kana||'なし')+')' : '')))
     + box('転出・卒業になる生徒(記録は残し、点数の入力などからは外します)', plan.toLeft.map(({s,n})=>sl(s)+' → '+esc(n.status)+(n.statusDate?'('+esc(n.statusDate)+')':'')))
     + box('名簿の元にいない生徒(消さずに印を付けます。アカウント管理アプリで確かめてください)', plan.missing.map(sl), 'warn')
     + box('学籍番号をつないだ生徒(以前に貼り付けた名簿と、学年・組・番号・氏名が同じ)', plan.linked.map(({n})=>nl(n)))
@@ -147,7 +147,7 @@ TABS.roster = { render(){
   let rows = '', lastCls = null;
   list.forEach(s=>{
     const on = isEnrolled(s);
-    rows += '<tr class="'+(on?'':'left')+(on && lastCls!==null && lastCls!==s.cls ? ' sep' : '')+'"><td class="c">'+esc(s.studentNo||'')+'</td><td class="c">'+s.cls+'</td><td class="c">'+s.no+'</td><td class="nowrap">'+esc(s.name)+'</td>'
+    rows += '<tr class="'+(on?'':'left')+(on && lastCls!==null && lastCls!==s.cls ? ' sep' : '')+'"><td class="c">'+esc(s.studentNo||'')+'</td><td class="c">'+s.cls+'</td><td class="c">'+s.no+'</td><td class="nowrap">'+esc(s.name)+'</td><td class="nowrap kana">'+esc(s.kana||'')+'</td>'
       + '<td class="nowrap">'+(on ? '在籍' : '<b>'+esc(s.status)+'</b>'+(s.statusDate?' '+esc(s.statusDate):''))+'</td></tr>';
     if(on) lastCls = s.cls;
   });
@@ -160,8 +160,8 @@ TABS.roster = { render(){
     + '</section>'
     + '<div class="toolbar"><span class="seg">'+gs.map(x=>'<button data-act="rosterGrade" data-g="'+x+'"'+(x===g?' class="active"':'')+'>'+x+'年</button>').join('')+'</span>'
     + '<span class="hint">在籍：'+counts+'</span></div>'
-    + '<table class="grid roster"><thead><tr><th>学籍番号</th><th>組</th><th>番号</th><th>氏名</th><th>在籍状況</th></tr></thead><tbody>'
-    + (rows || '<tr><td colspan="5" class="hint">'+g+'年の名簿はまだありません。上の「名簿のファイルを選んで読み込む」で読み込んでください。</td></tr>') + '</tbody></table>'
+    + '<table class="grid roster"><thead><tr><th>学籍番号</th><th>組</th><th>番号</th><th>氏名</th><th>ふりがな</th><th>在籍状況</th></tr></thead><tbody>'
+    + (rows || '<tr><td colspan="6" class="hint">'+g+'年の名簿はまだありません。上の「名簿のファイルを選んで読み込む」で読み込んでください。</td></tr>') + '</tbody></table>'
     + '<p class="hint">転出・卒業などの生徒は、点数などの記録を残すため、名簿の下に灰色で残します。点数の入力・出欠記録用紙・個票の対象からは外します。</p>';
 }};
 ACTIONS.rosterGrade = el=>{ view.rosterGrade = +el.dataset.g; savePref(); renderAll(); };

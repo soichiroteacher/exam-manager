@@ -83,7 +83,7 @@ BUILD.report = (ex)=>{
       const dists = c.keys.map(k=>'<div class="dist-box"><div class="dt">'+esc(keyName(c.sum, k).replace('の合計',''))+'</div>'+miniDist(c.info[k], valueOfRow(ex, row, k))+'</div>').join('');
       pages.push({ grow:1.35, html: '<div class="report">'
         + '<div class="rp-head"><div class="rp-title">'+esc(ex.name)+'　個人成績表</div><div class="rp-sub">'+schoolSub()+'</div></div>'
-        + '<div class="rp-name"><span>'+st.grade+'年 '+st.cls+'組 '+st.no+'番</span><b>'+esc(st.name)+'</b></div>'
+        + '<div class="rp-name"><span>'+st.grade+'年 '+st.cls+'組 '+st.no+'番</span><b>'+(st.kana ? '<ruby>'+esc(st.name)+'<rt>'+esc(st.kana)+'</rt></ruby>' : esc(st.name))+'</b></div>'
         + '<table class="p-table rp-table"><thead><tr><th>教科</th><th>満点</th><th>得点</th><th>学年平均</th>'+(prev ? '<th>前回<div class="small">'+esc(prev.name)+'</div></th><th>前回との差</th>' : '')+'</tr></thead><tbody>'+trs+'</tbody></table>'
         + '<p class="small">「欠」は欠席です。合計の「―」は、欠席の教科があるため合計を出していないものです。</p>'
         + '<h2 class="p-h2">学年の得点分布(▼が自分のいるところ)</h2><div class="dist-grid">'+dists+'</div>'

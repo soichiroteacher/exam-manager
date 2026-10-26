@@ -134,7 +134,7 @@
 - アプリのファイルを変えたら、`.git` を除いてフォルダ全体を `C:\Users\idolo\Documents\projects\appcopy\exam-manager\` にコピーする。あわせて GitHub へ commit・push する(force push はしない)。
 - 実データ(生徒・先生の名前、点数が入ったデータファイル・バックアップ・書き出した Excel)はこのフォルダに置かない。動作確認は架空の名前・点数の見本で行う。
 - 機能を変えたら README.md・CHANGELOG.md・このファイルを同時に更新する。
-- 動作確認は Browser pane で行う。このフォルダの `.claude/launch.json` に開発用サーバーの設定(名前 `exam-manager`、http://localhost:8105)がある。サーバー本体は `projects/.claude/serve-dir.ps1`。この PC には Node.js・Python がない。
+- 動作確認は Browser pane で行う。このフォルダの `.claude/launch.json` に開発用サーバーの設定(名前 `exam-manager`、http://localhost:8105。名簿の元を確かめるための `account-manager`、http://localhost:8106 もある)がある。サーバー本体は `projects/.claude/serve-dir.ps1`。この PC には Node.js・Python がない。
 - 参考にできる既存アプリ: 共有ファイルの編集ロックと自動保存は `../work-planner`(仕事管理)、Excel の書き出しと表を Excel のように操作する部分は `../school-events`(行事予定)、生徒の名簿の扱いは `../account-manager`(アカウント管理)。
 
 ## 6. 作りの概要(2026-09-27 試作版の時点)
@@ -244,7 +244,7 @@ work-planner と同じ(File System Access API、書く前にファイルの更�
 
 ### 6-9. 名簿の読み込み(アカウント管理アプリから。2026-10-26)
 
-- 読み込むファイル: アカウント管理アプリのデータファイル `アカウント名簿.json`(`format: 'account-manager-data'`, `version: 2`)。使う項目は `students[]` の `studentNo`(学籍番号)・`name`・`className`(「1年2組」など。`parseClassName` で学年と組に分ける。全角数字・「1-2」も読む)・`number`(出席番号)・`status`(在籍/転出/卒業)・`statusDate`。パスワードなどほかの項目は読まない・保存しない。暗号化された以前の形式(version 1)は読めないので、アカウント管理アプリで一度保存し直してもらう。
+- 読み込むファイル: アカウント管理アプリのデータファイル `アカウント名簿.json`(`format: 'account-manager-data'`, `version: 2`)。使う項目は `students[]` の `studentNo`(学籍番号)・`name`・`kana`(ふりがな。2026-10-27 にアカウント管理アプリに追加してもらった)・`className`(「1年2組」など。`parseClassName` で学年と組に分ける。全角数字・「1-2」も読む)・`number`(出席番号)・`status`(在籍/転出/卒業)・`statusDate`。パスワードなどほかの項目は読まない・保存しない。暗号化された以前の形式(version 1)は読めないので、アカウント管理アプリで一度保存し直してもらう。
 - 生徒のデータ: `students[] = { id, studentNo, grade, cls, no, name, kana, status, statusDate }`。`status` は 在籍/転出/卒業/名簿の元にいない。`isEnrolled` が在籍かどうか。
 - 照合(`planRosterImport`): 学籍番号で。学籍番号のない生徒(以前に貼り付けた名簿)は、学年・組・番号・氏名がすべて同じときだけつなぐ。学籍番号のない行・クラスの読めない行は読み込まない(一覧に出す)。
 - 反映(`applyRosterImport`): 新しい生徒は追加、組・番号・氏名は名簿の元に合わせる、転出・卒業は status だけ変えて学年・組・番号は残す、名簿の元にいない在籍の生徒は消さずに「名簿の元にいない」にする。設定のクラスの数より大きい組があれば増やす(減らさない)。**生徒を消すことはしない**(点数・配慮の記録を残すため)。

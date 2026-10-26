@@ -6,6 +6,12 @@
       "runtimeExecutable": "powershell.exe",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "../../.claude/serve-dir.ps1", "-Root", "apps/exam-manager", "-Port", "8105"],
       "port": 8105
+    },
+    {
+      "name": "account-manager",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "../../.claude/serve-dir.ps1", "-Root", "apps/account-manager", "-Port", "8106"],
+      "port": 8106
     }
   ]
 }

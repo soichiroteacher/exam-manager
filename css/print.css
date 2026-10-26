@@ -146,3 +146,4 @@ table.poster-table tr.none td{ color:#888; font-size:30px; }
 .grade-list .tot{ background:#f0f0f0; font-weight:bold; border-left:1.5px solid #000; }
 .grade-list tr.avg > *{ background:#e8eef6; font-weight:bold; }
 .grade-list tr.avg:first-of-type > *, .grade-list tr:not(.avg) + tr.avg > *{ border-top:2px solid #000; }
+.rp-name rt{ font-size:12px; font-weight:normal; }

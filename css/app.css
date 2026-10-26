@@ -191,3 +191,4 @@ table.grid tr.left td{ background:#f0f0f0; color:#888; }
 .tour-card .tour-foot{ display:flex; align-items:center; gap:8px; }
 .tour-card .tour-foot .note{ margin-right:auto; font-size:13px; color:var(--sub); }
 .tour-card .tour-x{ position:absolute; top:10px; right:10px; padding:2px 8px; }
+.roster td.kana{ color:var(--sub); font-size:14px; }

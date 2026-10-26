@@ -9,11 +9,13 @@ function makeSample(){
   s.meta.rooms = [ { id:'r1', name:'相談室' }, { id:'r2', name:'会議室' } ];
   // 生徒(名字と名前を組み合わせた架空の名前)
   const sei = ['青木','石川','上田','遠藤','大野','加藤','木村','工藤','小林','斉藤','坂本','清水','杉山','関口','田中','千葉','土屋','中川','西村','野口','橋本','平野','福田','本田','松本','宮崎','村上','森','山口','吉田'];
+  const seiKana = ['あおき','いしかわ','うえだ','えんどう','おおの','かとう','きむら','くどう','こばやし','さいとう','さかもと','しみず','すぎやま','せきぐち','たなか','ちば','つちや','なかがわ','にしむら','のぐち','はしもと','ひらの','ふくだ','ほんだ','まつもと','みやざき','むらかみ','もり','やまぐち','よしだ'];   // sei と同じ順のふりがな
   const mei = ['あおい','さくら','はると','ゆい','そうた','ひなた','りく','めい','ゆうと','こはる','いつき','みお','かいと','ことね','れん','ゆな','たくみ','あかり','しょう','まな','だいち','ひより','けんた','りこ','ゆうき'];
   let seed = 7; const rnd = n => { seed = (seed*9301+49297) % 233280; return Math.floor(seed/233280*n); };
   s.meta.grades.forEach(g=>{ for(let c=1;c<=g.classes;c++){ for(let no=1;no<=28;no++){
     // 学籍番号(架空): 入学年度 + 3けたの通し番号。名簿の元(アカウント管理アプリ)から読み込んだときと同じ形
-    s.students.push({ id:'st'+g.grade+'_'+c+'_'+no, studentNo:String(fy-g.grade+1)+String((c-1)*28+no).padStart(3,'0'), grade:g.grade, cls:c, no, name:sei[rnd(sei.length)]+' '+mei[rnd(mei.length)], kana:'', status:'在籍', statusDate:'' });
+    const i = rnd(sei.length), j = rnd(mei.length);
+    s.students.push({ id:'st'+g.grade+'_'+c+'_'+no, studentNo:String(fy-g.grade+1)+String((c-1)*28+no).padStart(3,'0'), grade:g.grade, cls:c, no, name:sei[i]+' '+mei[j], kana:seiKana[i]+' '+mei[j], status:'在籍', statusDate:'' });
   } } });
   // 先生(架空)。[名前, 担当教科, 所属学年, 種別, 監督なし]
   const T = [
