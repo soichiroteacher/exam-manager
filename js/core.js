@@ -10,6 +10,9 @@ let dirty = false;         // 保存していない変更があるか
 let isSample = false;      // 見本を表示中か(見本は保存しない)
 let lastKnownModified = 0; // 最後に読み書きしたときのファイルの更新時刻(ほかの人の保存に気づくため)
 let lastLockStamp = 0;     // 最後に「編集中」の印を保存した時刻
+const SESSION_ID = 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); // この画面の識別(編集中の印に書く)
+let myLog = null;          // 今の編集の記録 { by, start, end }(保存のたびに end を直す)
+const EDIT_LOG_MAX = 200;  // 編集の記録を残す件数(新しいものから)
 const supportsFSA = 'showOpenFilePicker' in window;
 
 // 画面の見方の好み(人ごと。ブラウザに覚えておくだけで、データファイルには入れない)
@@ -60,7 +63,8 @@ function emptyState(fy){
     teachers: [],   // [{ id, name, kind:'教員'|'サポーター', grade:0(所属なし)|1.., subjects:[subjectId], noProctor:false }]
     students: [],   // [{ id, grade, cls, no, name, kana }]
     exams: [],      // テストの回(newExam を見る)
-    editLock: { active:false, since:null, by:'' },
+    editLock: { active:false, since:null, by:'', session:'' },
+    editLog: [],    // 編集の記録 [{ by, start, end }](誰が・いつ。何を変えたかは残さない)
   };
 }
 // テストの回を1つ作る
@@ -99,7 +103,9 @@ function normalizeState(o){
   o.exams = (Array.isArray(o.exams)?o.exams:[]).filter(x=>x && x.id);
   const saved = state; state = o;   // normalizeExam は state の学年・教科を使うため、一時的に差し替える
   try{ o.exams.forEach(normalizeExam); } finally { state = saved; }
-  if(!o.editLock || typeof o.editLock!=='object') o.editLock = { active:false, since:null, by:'' };
+  if(!o.editLock || typeof o.editLock!=='object') o.editLock = { active:false, since:null, by:'', session:'' };
+  // editLog のない古いファイルは、空の記録として読む
+  o.editLog = (Array.isArray(o.editLog)?o.editLog:[]).filter(e=>e && e.start).map(e=>({ by:String(e.by||''), start:String(e.start), end:String(e.end||e.start) }));
   return o;
 }
 function normalizeExam(ex){
@@ -365,7 +371,8 @@ function importBackup(){
     let o;
     try{ o = normalizeState(JSON.parse(text)); }catch(e){ alert('読み込めませんでした。\n'+e.message+'\n\n「データを書き出す(バックアップ)」で作ったファイルを選んでください。'); return; }
     if(!confirm('「'+name+'」の内容で、今のデータを置き換えます。今のデータは消えます。よろしいですか？\n(不安なときは、先に「データを書き出す(バックアップ)」で今の状態を控えてください)')) return;
-    o.editLock = state.editLock; // 編集中の印は今のものを引き継ぐ
+    o.editLock = state.editLock; // 編集中の印と編集の記録は今のものを引き継ぐ
+    o.editLog = state.editLog;
     state = o;
     markDirty(); renderAll();
     alert('復元しました。');
@@ -429,6 +436,7 @@ async function writeFile(opts){
   }
   state.meta.savedAt = new Date().toISOString();
   state.meta.savedBy = editorName();
+  touchEditLog(state.meta.savedAt);
   const w = await fileHandle.createWritable();
   await w.write(stateToText(state));
   await w.close();
@@ -437,6 +445,16 @@ async function writeFile(opts){
   const t = new Date();
   setStatus('保存しました('+t.getHours()+':'+pad2(t.getMinutes())+')', 'saved');
   return true;
+}
+// 保存のたびに、今の編集の記録の「最後に保存した時刻」を直す(閉じ忘れても最後に保存した時刻が残るように)。
+// ほかの先生の保存を読み直して state が入れ替わっていても、記録がなければ足し直す。
+function touchEditLog(now){
+  if(!myLog || isSample || !state) return;
+  myLog.end = now;
+  if(!Array.isArray(state.editLog)) state.editLog = [];
+  const e = state.editLog.find(x=>x.by===myLog.by && x.start===myLog.start);
+  if(e) e.end = now; else state.editLog.push(Object.assign({}, myLog));
+  if(state.editLog.length > EDIT_LOG_MAX) state.editLog = state.editLog.slice(-EDIT_LOG_MAX); // 古いものから消す
 }
 function suggestedFileName(){ return '定期テスト_'+state.meta.fiscalYear+'年度.json'; }
 async function doSaveAs(){
@@ -507,7 +525,8 @@ async function startEditing(){
     if(!confirm('⚠ いま '+sensei(state.editLock.by)+'が編集中です。\n\n同時に編集すると、どちらかの入力が消えてしまいます。\nふつうは、相手が「編集を終える」まで待ってください。\n\nそれでも編集を始めますか？(相手がブラウザを閉じ忘れている場合など)')){ closeOverlay('editOverlay'); renderAll(); return; }
   }
   editing = true;
-  state.editLock = { active:true, since:new Date().toISOString(), by:name };
+  state.editLock = { active:true, since:new Date().toISOString(), by:name, session:SESSION_ID };
+  myLog = isSample ? null : { by:name, start:state.editLock.since, end:state.editLock.since };
   closeOverlay('editOverlay');
   renderAll();
   if(fileHandle && !isSample){
@@ -519,14 +538,14 @@ async function startEditing(){
 }
 async function stopEditing(){
   clearTimeout(autosaveTimer);
-  state.editLock = { active:false, since:null, by:'' };
+  state.editLock = { active:false, since:null, by:'', session:'' };
   if(fileHandle && !isSample){
     try{ const ok = await writeFile(); if(ok===false) return; }
-    catch(e){ alert('保存できませんでした。\n'+e.message+'\n\n共有サーバーにつながっているか確かめてから、もう一度「編集を終える」を押してください。'); state.editLock = { active:true, since:new Date().toISOString(), by:editorName() }; return; }
+    catch(e){ alert('保存できませんでした。\n'+e.message+'\n\n共有サーバーにつながっているか確かめてから、もう一度「編集を終える」を押してください。'); state.editLock = { active:true, since:new Date().toISOString(), by:editorName(), session:SESSION_ID }; return; }
   } else if(!isSample && dirty){
     if(!confirm('まだ保存していません。保存せずに編集を終えると、入力した内容は消えます。\n(「キャンセル」を押してから「保存」を押してください)\n\n保存せずに終えますか？')) { state.editLock.active = true; return; }
   }
-  editing = false; dirty = false;
+  editing = false; dirty = false; myLog = null;
   renderAll();
 }
 $('btnEdit').addEventListener('click', ()=>{ if(!state) return; editing ? stopEditing() : openEditDialog(); });
@@ -571,7 +590,8 @@ $('nOk').addEventListener('click', async ()=>{
   state = emptyState(y);
   state.meta.schoolName = $('nSchool').value.trim();
   fileHandle = null; isSample = false; editing = true; dirty = false;
-  state.editLock = { active:true, since:new Date().toISOString(), by:editorName() };
+  state.editLock = { active:true, since:new Date().toISOString(), by:editorName(), session:SESSION_ID };
+  myLog = { by:editorName(), start:state.editLock.since, end:state.editLock.since };
   closeOverlay('newOverlay');
   const ok = await doSaveAs();
   if(!ok){ ({ state, fileHandle, isSample, editing, dirty } = prev); renderAll(); return; } // 保存先を選ばなかったときは元に戻す
