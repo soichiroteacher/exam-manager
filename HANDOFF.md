@@ -188,7 +188,8 @@ HTML 1ファイルにすると大きくなりすぎるため、分けた(ダブ�
     notice:   { title, body },                                      // 注意事項(body は1行1項目)
     scores:   { [studentId]: { [subjectId]: 点数 | '欠' } }       // 点数(未入力は項目なし)
   }],
-  editLock: { active, since, by }
+  editLock: { active, since, by, session },   // 編集中の印(session はその画面の識別 SESSION_ID)
+  editLog:  [{ by, start, end }]             // 編集の記録(誰が・いつ。200件まで。「6-11」)
 }
 ```
 
@@ -260,3 +261,10 @@ work-planner と同じ(File System Access API、書く前にファイルの更�
 - データファイルを開いていないときは、2枚目に進むところで見本を開く(`openSampleForTour`。見本は保存されない)。開いているときは、そのファイルのまま(タブを切り替えるだけで、データは変えない)。
 - はじめて開いたとき(このブラウザで案内を見たことがなく、データファイルも開いていないとき)は、自動で最初のカードを出す(`maybeAutoTour`。見たかどうかは localStorage の `em.tourSeen`)。
 - 動作確認: 案内を最後まで進めて、17枚すべてで部品が見つかることを確かめた(見本・閲覧のみの状態で)。**画面の部品(ボタンの名前・位置・クラス名)を変えたら、`TOUR` を直して、同じように最後まで進めて確かめること。**
+
+### 6-11. 編集中の印と編集の記録(2026-10-30。全アプリ共通のルール「編集中の表示と編集の記録」)
+
+- `editLock` に `session`(画面ごとの識別 `SESSION_ID`)を書く。名前の入力は前からある(空では始められない。`em.editorName` に覚える)。
+- `editLog: [{ by, start, end }]` を `core.js` で記録する。編集を始めたとき(`startEditing`・新規作成)に `myLog` を作り、保存のたび(`writeFile` → `touchEditLog`)にその件の `end` を今の時刻にする。ほかの先生の保存を読み直して記録がなくなっていても足し直す。古いものから消して200件(`EDIT_LOG_MAX`)まで。見本では記録しない。
+- 復元(データを読み込む)では、今の `editLock`・`editLog` を引き継ぐ(控えのファイルの古い記録で上書きしない)。`editLog` のない古いファイルは `normalizeState` で空の記録にする。
+- 画面の上の「編集の記録」ボタン(`openEditLog`、`#logOverlay`)で新しい順に出す。見本(`sample.js`)には架空の名前の記録が4件ある。画面ガイドにも1枚足した。

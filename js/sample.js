@@ -90,5 +90,13 @@ function makeSample(){
       });
     });
   });
+  // 「編集の記録」を見本でも試せるように、架空の名前の記録を入れておく
+  const ago = (days, h, m) => { const d = new Date(); d.setDate(d.getDate()-days); d.setHours(h, m, 0, 0); return d.toISOString(); };
+  s.editLog = [
+    { by:'見本 一郎', start:ago(9,15,40), end:ago(9,16,25) },
+    { by:'試験 花子', start:ago(6,8,10), end:ago(6,8,35) },
+    { by:'見本 一郎', start:ago(3,16,5), end:ago(3,17,2) },
+    { by:'練習 太郎', start:ago(1,12,50), end:ago(1,13,15) },
+  ];
   return s;
 }

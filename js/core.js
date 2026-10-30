@@ -282,6 +282,7 @@ function renderTop(){
   $('editBadge').classList.toggle('on', editing);
   $('btnEdit').textContent = editing ? '編集を終える' : '✏ 編集する';
   $('btnEdit').disabled = !has;
+  $('btnLog').disabled = !has;
   $('btnReload').hidden = !fileHandle || editing;
   $('btnSave').disabled = !editing || isSample;
   $('fileName').textContent = fileHandle ? 'ファイル：' + fileHandle.name : '';
@@ -572,6 +573,26 @@ setInterval(()=>{ if(state && !editing) renderTop(); }, 60*1000);
 window.addEventListener('beforeunload', e=>{
   if(editing && (dirty || !isSample)){ e.preventDefault(); e.returnValue = ''; }
 });
+
+//////////////////////// 編集の記録 ////////////////////////
+// 新しい順に「名前・日付・始めた時刻〜最後に保存した時刻」を出す
+function openEditLog(){
+  if(!state) return;
+  const hm = d => d.getHours()+':'+pad2(d.getMinutes());
+  const rows = state.editLog.slice().sort((a,b)=> String(b.start).localeCompare(String(a.start))).map(e=>{
+    const s = new Date(e.start), t = new Date(e.end);
+    if(!Number.isFinite(s.getTime())) return '';
+    const day = s.getFullYear()+'年'+(s.getMonth()+1)+'月'+s.getDate()+'日('+CONFIG.weekdays[s.getDay()]+')';
+    const end = Number.isFinite(t.getTime()) ? (t.toDateString()===s.toDateString() ? hm(t) : (t.getMonth()+1)+'/'+t.getDate()+' '+hm(t)) : '';
+    return '<tr><td>'+esc(sensei(e.by))+'</td><td>'+day+'</td><td>'+hm(s)+'〜'+end+'</td></tr>';
+  }).join('');
+  $('logBody').innerHTML = rows
+    ? '<table class="grid"><thead><tr><th>名前</th><th>日付</th><th>始めた時刻〜最後に保存した時刻</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    : '<p>まだ記録はありません。「✏ 編集する」で編集すると、ここに残ります。</p>';
+  openOverlay('logOverlay');
+}
+$('btnLog').addEventListener('click', openEditLog);
+$('logClose').addEventListener('click', ()=>closeOverlay('logOverlay'));
 
 //////////////////////// 新規作成 ////////////////////////
 function openNewDialog(){

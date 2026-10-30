@@ -25,6 +25,7 @@
   <span id="lockWarning" hidden></span>
   <span id="editBadge" class="edit-badge">閲覧のみ</span>
   <button id="btnEdit">✏ 編集する</button>
+  <button id="btnLog" title="誰が・いつ編集したかを見ます">編集の記録</button>
   <button id="btnReload" title="ほかの先生が保存した最新の内容を読み直します">↻ 最新にする</button>
   <button id="btnSave" disabled>保存</button>
   <button id="btnOpen">開く</button>
@@ -111,6 +112,16 @@
     <h2 id="fmTitle"></h2>
     <div id="fmBody"></div>
     <div class="foot"><span class="spacer"></span><button id="fmCancel">閉じる</button><button class="primary" id="fmOk">決定</button></div>
+  </div>
+</div>
+
+<!-- ===== 編集の記録(誰が・いつ編集したか) ===== -->
+<div class="overlay" id="logOverlay">
+  <div class="modal" style="width:560px">
+    <h2>編集の記録</h2>
+    <p class="hint">誰が・いつ編集したかの記録です(何を変えたかは残しません)。新しい順に、最大200件です。</p>
+    <div id="logBody" style="max-height:60vh;overflow:auto"></div>
+    <div class="foot"><span class="spacer"></span><button id="logClose">閉じる</button></div>
   </div>
 </div>
 
