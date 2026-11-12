@@ -30,6 +30,7 @@ function makeSample(){
   // テストの回(2日間。1日目は3時間、2日目は2時間)
   state = s;   // newExam が学年・教科を使うため
   const ex = newExam('2学期中間テスト');
+  ex.leaveNote = '半日だけ不在のときも、その日に書いてください。\n書いたあとで予定が変わったときは、教務に知らせてください。';   // 休暇・出張の調べに載せる注意の見本
   const base = new Date(); base.setDate(base.getDate()+14); while(base.getDay()!==3) base.setDate(base.getDate()+1); // 2週間後の水曜
   const ymd = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
   const d1 = newDay(ymd(base)); base.setDate(base.getDate()+1); const d2 = newDay(ymd(base));

@@ -22,6 +22,7 @@ const CONFIG = {
   defaultMax: 100,          // 満点の初期値
   defaultExtendRate: 1.3,   // 時間延長の倍率の初期値(2026-09-27 ユーザーと確認)
   defaultExtendPlus: 10,    // 「+〇分」で延長するときの分の初期値
+  yobireiMinutes: 5,        // 予鈴はテストの始まりの何分前か(教室の時程表に載せる)
   // 1日の時程のひな形(テストの日を追加したときに入る)。kind: 'test'=テストの時間 / 'other'=学活・休憩など
   defaultDaySlots: [
     { kind:'other', label:'朝の学活', start:'08:30', end:'08:45' },

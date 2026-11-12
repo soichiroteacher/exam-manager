@@ -26,8 +26,8 @@ TABS.leave = { render(){
   if(!ex){ $('tab-leave').innerHTML = needExamHtml(); return; }
   const { ts, h1, h2 } = slotHeadHtml(ex, false);
   const people = proctorPeople();
-  let html = '<div class="toolbar"><button data-act="printForm" data-form="leave">🖨 休暇集約用紙を印刷</button>'
-    + '<span class="hint">先生方に用紙で集めた休暇・出張を、ここに入れます。ます目を押すたびに「休暇 → 出張 → その他 → 空」と変わります。印を付けた時間は、監督の自動の割り当てから外します。</span></div>';
+  let html = '<div class="toolbar"><button data-act="printForm" data-form="leave">🖨 休暇・出張の調べを印刷</button>'
+    + '<span class="hint">掲示した用紙に書き込まれた休暇・出張を、ここに入れます(1日休みのときは右の「1日目」などを押すと、その日をまとめて入れられます)。ます目を押すたびに「休暇 → 出張 → その他 → 空」と変わります。印を付けた時間は、監督の自動の割り当てから外します。</span></div>';
   if(!ts.length){ $('tab-leave').innerHTML = html + '<div class="banner">「時間割」タブで、テストの時間を入れてください。</div>'; return; }
   if(!people.length){ $('tab-leave').innerHTML = html + '<div class="banner">「設定」タブで、先生・サポーターを入れてください。</div>'; return; }
   html += '<div class="scroll-x"><table class="grid leave"><thead><tr><th rowspan="2">名前</th><th rowspan="2">種別</th>'+h1+'<th rowspan="2">日ごと</th></tr><tr>'+h2+'</tr></thead><tbody>';
@@ -38,6 +38,9 @@ TABS.leave = { render(){
       + '<td class="nowrap">'+ex.days.map((day,di)=> ts.some(x=>x.di===di) ? '<button class="small edit-act" data-act="leaveDay" data-t="'+esc(t.id)+'" data-d="'+di+'" title="この日をまとめて休暇にする/消す">'+(di+1)+'日目</button>' : '').join(' ')+'</td></tr>';
   });
   html += '</tbody></table></div>';
+  html += '<section class="leave-note"><h2>休暇・出張調べの用紙に載せる注意(なくてもよい)</h2>'
+    + '<p class="hint">用紙のいちばん下に載ります。1行ずつ改行して書けます。</p>'
+    + '<textarea rows="4" style="width:100%;max-width:800px" data-path="ex.leaveNote" placeholder="例：半日だけ不在のときも、その日に書いてください。"'+(editing?'':' disabled')+'>'+esc(ex.leaveNote)+'</textarea></section>';
   $('tab-leave').innerHTML = html;
 }};
 ACTIONS.cycleLeave = el=>{

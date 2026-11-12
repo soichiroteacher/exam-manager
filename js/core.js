@@ -70,7 +70,7 @@ function emptyState(fy){
 // テストの回を1つ作る
 function newExam(name){
   const ex = { id:newId('x'), name, days:[], subjects:{}, schedule:{}, leave:{}, proctors:{}, special:[], status:{}, sepStart:{},
-    notice:{ title:CONFIG.defaultNoticeTitle, body:CONFIG.defaultNotice }, scores:{} };
+    notice:{ title:CONFIG.defaultNoticeTitle, body:CONFIG.defaultNotice }, leaveNote:'', scores:{} };
   normalizeExam(ex);
   return ex;
 }
@@ -134,6 +134,7 @@ function normalizeExam(ex){
   ex.special.forEach(p=>{ if(!p.minutes || typeof p.minutes!=='object') p.minutes = {}; if(!p.starts || typeof p.starts!=='object') p.starts = {}; if(!Array.isArray(p.absentDays)) p.absentDays = []; if(p.extType!=='plus') p.extType = 'rate'; });
   if(!ex.sepStart || typeof ex.sepStart!=='object') ex.sepStart = {};   // 別室だけ始まりをずらす時刻 { '時間id|別室id': 'HH:MM' }
   if(!ex.notice || typeof ex.notice!=='object') ex.notice = { title:CONFIG.defaultNoticeTitle, body:CONFIG.defaultNotice };
+  ex.leaveNote = typeof ex.leaveNote==='string' ? ex.leaveNote : '';   // 休暇・出張調べの用紙に載せる注意(任意)
   return ex;
 }
 

@@ -12,13 +12,13 @@ const PAPER = {
 };
 // 用紙の種類。paper = 選べる用紙(最初が初期値)
 const FORMS = {
-  leave:     { title:'休暇集約用紙',            paper:['A4P','A4L'], desc:'監督表を作る前に、先生方に休暇・出張で監督に入れない時間を書いてもらう用紙です。名前は「設定」の先生・サポーターから入ります。' },
+  leave:     { title:'休暇・出張の調べ',        paper:['A3L','A4L'], desc:'監督表を作る前に、ホワイトボードなどに1枚掲示して、監督に入れない日を学年ごとに書き込んでもらう用紙です(縦に学年、横にテストの日)。下に載せる注意は「休暇」タブで入れます。' },
   proctor:   { title:'監督表',                  paper:['A4P','A4L','A3P'], desc:'縦に先生、横にテストの時間(教科と時刻)を並べ、ます目に監督に入る教室(1-1 など)を書きます。別室の延長の終わりの時刻と、別室・延長の生徒の表も付けて1枚にまとめます。' },
-  roomTime:  { title:'時程表(通常の教室)',      paper:['A3L','A3P'], desc:'各教室に掲示する時程表です。1日1枚(クラス名を入れて、クラスごとに出すこともできます)。遠くから見えるよう、用紙いっぱいの大きな文字にします。' },
+  roomTime:  { title:'時程表(通常の教室)',      paper:['A3L','A3P'], desc:'各教室に掲示する時程表です。A3横に1日1枚(クラス名を入れて、クラスごとに出すこともできます)。教室の後ろからも見えるよう、用紙いっぱいの大きな文字にします。テストの時間には予鈴(始まりの'+CONFIG.yobireiMinutes+'分前)の時刻も載せます。' },
   sepTime:   { title:'時程表(別室)',            paper:['A3L','A3P'], desc:'別室に掲示する時程表です。1日1枚・部屋ごと。時間延長の終わりの時刻も載せます(生徒の名前は載せません)。' },
   special:   { title:'配慮生徒一覧',            paper:['A3L','A4L'], desc:'欠席・別室受験・時間延長などの生徒の一覧です。当日、職員室に掲示し、受験状態を書き込みます。生徒の名前が入るので、掲示する場所に気をつけてください。' },
   notice:    { title:'注意事項',                paper:['A3P','A3L'], desc:'教室に掲示するテストの注意事項です。文は「テストの回」タブで直せます。' },
-  attend:    { title:'出欠記録用紙',            paper:['A3L','A4P'], desc:'当日、学級の在籍・出欠を手書きで記録する用紙です。A3横は全部の日を1枚に、A4縦は1日1枚です。1クラス分ずつ印刷します。' },
+  attend:    { title:'出欠記録用紙',            paper:['A3L','A4P'], desc:'当日、学級の在籍・出欠を手書きで記録する用紙です。A3横は全部の日を1枚に、A4縦は1日1枚です(「日」で1日だけ選ぶと、時程表と同じ日の分だけ出せます)。1クラス分ずつ印刷します。' },
 };
 const printOpt = loadPrintOpt();
 function loadPrintOpt(){ try{ return Object.assign({}, JSON.parse(localStorage.getItem('em.print'))||{}); }catch(e){ return {}; } }
@@ -38,14 +38,18 @@ TABS.print = { render(){
   Object.entries(FORMS).forEach(([k, f])=>{
     const paper = optOf(k, 'paper', f.paper[0]);
     let extra = '';
-    if(k==='leave') extra = '<label><input type="checkbox" data-popt="leave.fill"'+(optOf('leave','fill',false)?' checked':'')+'> 入力済みの休暇を書き入れる</label>'
-      + '<label>提出日 <input type="text" style="width:140px" data-popt="leave.due" value="'+esc(optOf('leave','due',''))+'" placeholder="例：10月3日(金)"></label>';
+    if(k==='leave') extra = '<label><input type="checkbox" data-popt="leave.fill"'+(optOf('leave','fill',false)?' checked':'')+'> 入力済みの休暇を名前で書き入れる</label>'
+      + '<label>提出日 <input type="text" style="width:140px" data-popt="leave.due" value="'+esc(optOf('leave','due',''))+'" placeholder="例：10月3日(金)"></label>'
+      + '<span class="hint">注意の文は「休暇」タブで入れます。</span>';
     if(k==='proctor') extra = '<label><input type="checkbox" data-popt="proctor.students"'+(optOf('proctor','students',true)?' checked':'')+'> 別室・時間延長の生徒の表を付ける</label>';
     if(k==='roomTime') extra = '<label>日 <select data-popt="roomTime.day">'+dayOpts(optOf('roomTime','day','all'))+'</select></label>'
-      + '<label><input type="checkbox" data-popt="roomTime.perClass"'+(optOf('roomTime','perClass',false)?' checked':'')+'> クラスごとに1枚ずつ(クラス名を入れる)</label>';
+      + '<label><input type="checkbox" data-popt="roomTime.perClass"'+(optOf('roomTime','perClass',false)?' checked':'')+'> クラスごとに1枚ずつ(クラス名を入れる)</label>'
+      + '<label><input type="checkbox" data-popt="roomTime.yobi"'+(optOf('roomTime','yobi',true)?' checked':'')+'> 予鈴('+CONFIG.yobireiMinutes+'分前)の時刻を載せる</label>'
+      + '<span class="hint">当日の出欠記録用紙は、下の「出欠記録用紙」で同じ日を選んで出します(用紙の大きさが違うため別に印刷します)。</span>';
     if(k==='sepTime') extra = '<label>日 <select data-popt="sepTime.day">'+dayOpts(optOf('sepTime','day','all'))+'</select></label>';
     if(k==='special') extra = '<label><input type="checkbox" data-popt="special.fill"'+(optOf('special','fill',false)?' checked':'')+'> 入力済みの受験状態を書き入れる</label>';
-    if(k==='attend') extra = '<label>クラス <select data-popt="attend.target">'+targetOpts(optOf('attend','target','all'))+'</select></label>';
+    if(k==='attend') extra = '<label>クラス <select data-popt="attend.target">'+targetOpts(optOf('attend','target','all'))+'</select></label>'
+      + '<label>日 <select data-popt="attend.day">'+dayOpts(optOf('attend','day','all'))+'</select></label>';
     if(k==='report'){
       const cmp = optOf('report','compare','auto'), pv = prevExamOf(ex);
       extra = '<label>生徒 <select data-popt="report.target">'+targetOpts(optOf('report','target','all'))+'</select></label>'
@@ -151,22 +155,39 @@ function otherSlotsText(day){ return sortedSlots(day).map(x=>x.s).filter(s=>s.ki
 // 時刻の範囲の文字
 function range(a, b){ return fmtT(a)+'〜'+fmtT(b); }
 
-// ---- 休暇集約用紙 ----
-BUILD.leave = (ex)=>{
-  const ts = testSlots(ex), people = proctorPeople();
-  if(!ts.length || !people.length) return [];
+// ---- 休暇・出張の調べ(ホワイトボードなどに1枚掲示して、学年ごとに書き込んでもらう) ----
+// 縦に学年(と学年外)、横にテストの日。ます目は空けておき、先生が名前と「休」「出」を書く(時間までは聞かない)。
+function leaveGroups(){
+  const gs = grades().map(g=>({ key:g, label:g+'年' }));
+  return gs.concat([{ key:0, label:'学年外<br><span class="small">(サポーターなど)</span>' }]);
+}
+BUILD.leave = (ex, paperKey)=>{
+  const days = ex.days.map((day, di)=>({ day, di })).filter(x=>testSlots(ex).some(t=>t.di===x.di));
+  if(!days.length) return [];
+  const P = PAPER[paperKey] || PAPER.A3L;
   const fill = optOf('leave','fill',false), due = optOf('leave','due','');
-  let h1 = '', h2 = '';
-  ex.days.forEach((day, di)=>{ const n = ts.filter(t=>t.di===di).length; if(n) h1 += '<th colspan="'+n+'">'+esc(dayTitle(ex, di))+'</th>'; });
-  ts.forEach(t=>{ h2 += '<th class="slot">'+esc(t.label)+'<br><span class="small">'+fmtT(tmin(t.slot.start))+'〜</span></th>'; });
-  const rows = people.map(p=>'<tr><th class="l">'+esc(p.name)+(p.kind==='サポーター'?'<span class="small">(サ)</span>':'')+'</th>'
-    + ts.map(t=>'<td class="c">'+(fill ? esc((leaveOf(ex, p.id, t.slot.id)||'').slice(0,2)) : '')+'</td>').join('') + '<td></td></tr>').join('');
-  const html = pTitle(esc(ex.name)+'　試験監督のための 休暇・出張の調べ', schoolSub())
-    + '<p class="p-lead">テストの期間に、休暇・出張・そのほかの用事で<b>監督に入れない時間</b>のます目に「休」「出」などを書いてください。'
-    + (due ? '<br><b>'+esc(due)+'</b>までに、教務へ出してください。' : '<br>＿＿月＿＿日(　)までに、教務へ出してください。') + '</p>'
-    + '<table class="p-table leave-form"><thead><tr><th rowspan="2" class="name">名前</th>'+h1+'<th rowspan="2" class="note">備考(時刻など)</th></tr><tr>'+h2+'</tr></thead><tbody>'+rows+'</tbody></table>'
-    + '<p class="small">休＝休暇　出＝出張　他＝そのほか。1時間の一部だけ入れないときは、備考に時刻を書いてください。</p>';
-  return [{ html }];
+  const groups = leaveGroups();
+  const note = (ex.leaveNote||'').split('\n').map(l=>l.trim()).filter(Boolean);
+  // ます目の高さは、用紙の残りの高さを学年の数で分ける(書き込む場所をできるだけ広く)
+  const rowH = Math.max(60, Math.floor((P.h - 250 - note.length*30) / groups.length));
+  // 入力済みの休暇を書き入れるときは、その日に1つでも印のある人を「名前(休)」の形で出す
+  const filled = (gkey, di)=>{
+    if(!fill) return '';
+    const ids = testSlots(ex).filter(t=>t.di===di).map(t=>t.slot.id);
+    const gOf = p=> grades().includes(Number(p.grade)) ? Number(p.grade) : 0;   // 学年に入っていない人は「学年外」
+    return proctorPeople().filter(p=>gOf(p)===gkey)
+      .map(p=>{ const k = ids.map(id=>leaveOf(ex, p.id, id)).find(Boolean); return k ? esc(p.name)+'('+esc({ '休暇':'休', '出張':'出' }[k] || '他')+')' : ''; })
+      .filter(Boolean).join('<br>');
+  };
+  const head = days.map(x=>'<th>'+esc(dayTitle(ex, x.di))+'</th>').join('');
+  const rows = groups.map(g=>'<tr style="height:'+rowH+'px"><th class="grade">'+g.label+'</th>'
+    + days.map(x=>'<td class="write">'+filled(g.key, x.di)+'</td>').join('')+'</tr>').join('');
+  const html = pTitle(esc(ex.name)+'　休暇・出張の調べ(試験監督)', schoolSub())
+    + '<p class="p-lead leave-lead">テストの日に、休暇・出張などで<b>監督に入れない日</b>があるときは、<b>自分の学年の欄</b>のその日のところに<b>名前と「休」(休暇)・「出」(出張)・「他」(そのほか)</b>を書いてください。'
+    + (due ? '<br><b>'+esc(due)+'</b>までに書いてください。' : '<br>＿＿月＿＿日(　)までに書いてください。') + '</p>'
+    + '<table class="p-table leave-board"><thead><tr><th class="grade">学年</th>'+head+'</tr></thead><tbody>'+rows+'</tbody></table>'
+    + (note.length ? '<div class="leave-notes"><b>注意</b><ul>'+note.map(l=>'<li>'+esc(l)+'</li>').join('')+'</ul></div>' : '');
+  return [{ html, cls:'leave-poster' }];
 };
 
 // ---- 監督表(縦に先生、横に教科(テストの時間)。ます目に入る教室) ----
@@ -219,15 +240,17 @@ BUILD.proctor = (ex)=>{
 
 // ---- 時程表(通常の教室)。教科は全学年共通なので、1日1枚(クラスごとにも出せる) ----
 BUILD.roomTime = (ex)=>{
-  const dsel = optOf('roomTime','day','all'), perClass = optOf('roomTime','perClass',false);
+  const dsel = optOf('roomTime','day','all'), perClass = optOf('roomTime','perClass',false), yobi = optOf('roomTime','yobi',true);
   const pages = [];
   ex.days.forEach((day, di)=>{
     if(dsel!=='all' && String(dsel)!==String(di)) return;
     if(!day.slots.length) return;
     const rows = sortedSlots(day).map(({s})=>{
-      if(s.kind==='other') return '<tr class="other"><td colspan="2">'+esc(s.label)+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
+      if(s.kind==='other') return '<tr class="other"><td colspan="'+(yobi?3:2)+'">'+esc(s.label)+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+fmtT(tmin(s.end))+'</td></tr>';
       const sid = subjAt(ex, s.id);
-      return '<tr><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+(sid ? esc(subjectName(sid)) : '')+'</td><td class="time">'+fmtT(tmin(s.start))+' 〜 '+(sid ? fmtT(slotEnd(ex, s)) : '')+'</td></tr>';
+      // 予鈴は始まりの何分か前(分は config.js の yobireiMinutes)
+      const yb = yobi ? '<td class="yobi">'+(sid ? '予鈴 '+fmtT(tmin(s.start) - CONFIG.yobireiMinutes) : '')+'</td>' : '';
+      return '<tr><td class="lab">'+esc(slotLabel(day, s))+'</td><td class="subj">'+(sid ? esc(subjectName(sid)) : '')+'</td>'+yb+'<td class="time">'+fmtT(tmin(s.start))+' 〜 '+(sid ? fmtT(slotEnd(ex, s)) : '')+'</td></tr>';
     }).join('');
     const targets = perClass ? classRooms().map(r=>r.grade+'年'+r.cls+'組') : [(di+1)+'日目'];
     targets.forEach(name=>{
@@ -308,12 +331,13 @@ BUILD.notice = (ex)=>{
 BUILD.attend = (ex, paperKey)=>{
   const target = optOf('attend','target','all');
   const rooms = classRooms().filter(r=> target==='all' || target==='g'+r.grade || target===r.key);
-  const perDay = paperKey==='A4P';
+  const perDay = paperKey==='A4P', dsel = optOf('attend','day','all');
   const pages = [];
   rooms.forEach(r=>{
     const sts = state.students.filter(s=>s.grade===r.grade && s.cls===r.cls && isEnrolled(s)).sort(sortStudents);
     if(!sts.length) return;
-    const dayGroups = perDay ? ex.days.map((d,di)=>[di]) : [ex.days.map((d,di)=>di)];
+    // 「日」で1日だけ選んだときは、その日の分だけ(時程表と同じ日の分を出すため)
+    const dayGroups = dsel!=='all' ? [[Number(dsel)]] : perDay ? ex.days.map((d,di)=>[di]) : [ex.days.map((d,di)=>di)];
     dayGroups.forEach(dayIdxs=>{
       const ts = testSlots(ex).filter(t=>dayIdxs.includes(t.di) && subjAt(ex, t.slot.id));
       if(!ts.length) return;

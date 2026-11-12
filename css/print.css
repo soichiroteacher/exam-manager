@@ -42,11 +42,16 @@ table.p-table td.c{ text-align:center; }
 table.p-table td.r{ text-align:right; }
 table.p-table tr{ break-inside:avoid; }
 
-/* 休暇集約用紙 */
-.leave-form td, .leave-form th.l{ height:27px; }
-.leave-form th.name{ width:120px; }
-.leave-form th.note{ width:22%; }
-.leave-form td{ font-weight:bold; }
+
+/* 休暇・出張の調べ(掲示して書き込む。ます目は広く空ける) */
+.leave-poster .p-title h1{ font-size:32px; }
+.leave-lead{ font-size:20px; }
+table.leave-board{ table-layout:fixed; }
+table.leave-board thead th{ font-size:20px; padding:6px; }
+table.leave-board th.grade{ width:110px; font-size:24px; background:#f3f3f3; }
+table.leave-board td.write{ vertical-align:top; text-align:left; font-size:15px; line-height:1.5; padding:6px 8px; }
+.leave-notes{ margin-top:8px; font-size:20px; }
+.leave-notes ul{ margin:2px 0 0 1.2em; padding:0; }
 
 /* 監督表 */
 .proctor-sheet td{ font-size:13px; height:24px; }
@@ -70,6 +75,7 @@ table.poster-table{ width:100%; border-collapse:collapse; }
 table.poster-table td{ border-bottom:2px solid #444; padding:14px 10px; font-size:54px; vertical-align:middle; }
 table.poster-table td.lab{ width:24%; white-space:nowrap; }
 table.poster-table td.subj{ font-weight:bold; font-size:66px; }
+table.poster-table td.yobi{ font-size:40px; white-space:nowrap; text-align:right; padding-right:30px; }
 table.poster-table td.time{ text-align:right; white-space:nowrap; font-weight:bold; font-variant-numeric:tabular-nums; }
 table.poster-table tr.other td{ font-size:36px; color:#333; padding:8px 10px; }
 table.poster-table tr.other td.time{ font-weight:normal; }
