@@ -18,7 +18,7 @@ const FORMS = {
   sepTime:   { title:'時程表(別室)',            paper:['A3L','A3P'], desc:'別室に掲示する時程表です。1日1枚・部屋ごと。時間延長の終わりの時刻も載せます(生徒の名前は載せません)。' },
   special:   { title:'配慮生徒一覧',            paper:['A3L','A4L'], desc:'欠席・別室受験・時間延長などの生徒の一覧です。当日、職員室に掲示し、受験状態を書き込みます。生徒の名前が入るので、掲示する場所に気をつけてください。' },
   notice:    { title:'注意事項',                paper:['A3P','A3L'], desc:'教室に掲示するテストの注意事項です。文は「テストの回」タブで直せます。' },
-  attend:    { title:'出欠記録用紙',            paper:['A3L','A4P'], desc:'当日、学級の在籍・出欠を手書きで記録する用紙です。A3横は全部の日を1枚に、A4縦は1日1枚です(「日」で1日だけ選ぶと、時程表と同じ日の分だけ出せます)。1クラス分ずつ印刷します。' },
+  attend:    { title:'出欠記録用紙',            paper:['A4P','A3P'], desc:'監督に来た先生が、そのクラスの在籍・出席の人数・欠席の生徒(誰か)をつかむための用紙です。1クラス・1日1枚で、時間ごとに出席の人数と欠席者を書きます。欠席予定・別室受験の生徒は前もって入り、下に名簿が付きます。「日」で時程表と同じ日を選べます。' },
 };
 const printOpt = loadPrintOpt();
 function loadPrintOpt(){ try{ return Object.assign({}, JSON.parse(localStorage.getItem('em.print'))||{}); }catch(e){ return {}; } }
@@ -254,7 +254,7 @@ BUILD.roomTime = (ex)=>{
     }).join('');
     const targets = perClass ? classRooms().map(r=>r.grade+'年'+r.cls+'組') : [(di+1)+'日目'];
     targets.forEach(name=>{
-      pages.push({ grow:true, cls:'poster', html:'<div class="poster-head"><div class="date">'+(day.date?fmtJDate(day.date):'日付未定')+'</div><div class="who">'+esc(name)+'</div></div>'
+      pages.push({ grow:true, cls:'poster room', html:'<div class="poster-head"><div class="date">'+(day.date?fmtJDate(day.date):'日付未定')+'</div><div class="who">'+esc(name)+'</div></div>'
         + '<div class="poster-sub">'+esc(ex.name)+(perClass ? '　'+(di+1)+'日目' : '')+'</div>'
         + '<table class="poster-table">'+rows+'</table>' });
     });
@@ -327,41 +327,46 @@ BUILD.notice = (ex)=>{
   return [{ html, grow:true, cls:'poster' }];
 };
 
-// ---- 出欠記録用紙 ----
+// ---- 出欠記録用紙(監督に来た先生が、そのクラスの在籍・出席・欠席(誰か)をつかむための用紙。1クラス・1日1枚) ----
+// 朝のうちに担任(または教務)が欠席者を書いておき、監督の先生は時間ごとに出席の人数と欠席者を確かめて書く。
+// 前もって分かっている欠席・別室受験は、配慮生徒の入力から書き入れておく。下に名簿(番号・氏名)を付けて、誰がいないかを見分けられるようにする。
 BUILD.attend = (ex, paperKey)=>{
-  const target = optOf('attend','target','all');
+  const target = optOf('attend','target','all'), dsel = optOf('attend','day','all');
   const rooms = classRooms().filter(r=> target==='all' || target==='g'+r.grade || target===r.key);
-  const perDay = paperKey==='A4P', dsel = optOf('attend','day','all');
   const pages = [];
   rooms.forEach(r=>{
     const sts = state.students.filter(s=>s.grade===r.grade && s.cls===r.cls && isEnrolled(s)).sort(sortStudents);
     if(!sts.length) return;
-    // 「日」で1日だけ選んだときは、その日の分だけ(時程表と同じ日の分を出すため)
-    const dayGroups = dsel!=='all' ? [[Number(dsel)]] : perDay ? ex.days.map((d,di)=>[di]) : [ex.days.map((d,di)=>di)];
-    dayGroups.forEach(dayIdxs=>{
-      const ts = testSlots(ex).filter(t=>dayIdxs.includes(t.di) && subjAt(ex, t.slot.id));
+    ex.days.forEach((day, di)=>{
+      if(dsel!=='all' && String(dsel)!==String(di)) return;
+      const ts = testSlots(ex).filter(t=>t.di===di && subjAt(ex, t.slot.id));
       if(!ts.length) return;
-      let h1 = '', h2 = '', h3 = '';
-      dayIdxs.forEach(di=>{ const n = ts.filter(t=>t.di===di).length; if(n) h1 += '<th colspan="'+n+'">'+esc(dayTitle(ex, di))+'</th>'; });
-      ts.forEach(t=>{
-        const sid = subjAt(ex, t.slot.id);
-        h2 += '<th class="slot">'+esc(t.label)+'<br><b>'+esc(subjectName(sid))+'</b></th>';
-        h3 += '<th class="small">'+esc(proctorsAt(ex, t.slot.id, r.key).map(teacherName).join('・'))+'</th>';
-      });
-      const rows = sts.map(s=>{
+      // 前もって分かっていること(配慮生徒の入力から)
+      const absent = [], sep = [];
+      sts.forEach(s=>{
         const sp = ex.special.find(p=>p.studentId===s.id);
-        return '<tr><td class="c">'+s.no+'</td><td class="name">'+esc(s.name)+'</td>' + ts.map(t=>{
-          if(sp && isAbsentDay(sp, t.day)) return '<td class="pre-cell">欠席予定</td>';
-          if(sp && sp.room) return '<td class="pre-cell">別室</td>';
-          return '<td></td>';
-        }).join('') + '</tr>';
+        if(!sp) return;
+        if(isAbsentDay(sp, day)) absent.push(s.no+' '+esc(s.name));
+        else if(sp.room) sep.push(s.no+' '+esc(s.name)+'('+esc(roomName(sp.room)||'別室')+')');
+      });
+      const rows = ts.map(t=>{
+        const sid = subjAt(ex, t.slot.id);
+        const pr = proctorsAt(ex, t.slot.id, r.key).map(teacherName).join('・');
+        return '<tr><td class="lab">'+esc(t.label)+'<br><b class="sb">'+esc(subjectName(sid))+'</b><br><span class="small">'+fmtT(tmin(t.slot.start))+'〜'+fmtT(slotEnd(ex, t.slot))+'</span></td>'
+          + '<td class="pr">'+esc(pr)+'</td>'
+          + '<td class="num">出席<br><span class="blank"></span>／'+sts.length+'名</td>'
+          + '<td class="who"></td><td class="sign"></td></tr>';
       }).join('');
-      const foot = '<tr class="foot"><th colspan="2">欠席の人数</th>'+ts.map(()=>'<td class="r">人</td>').join('')+'</tr>'
-        + '<tr class="foot"><th colspan="2">出席 ／ 在籍</th>'+ts.map(()=>'<td class="r">／'+sts.length+'</td>').join('')+'</tr>'
-        + '<tr class="foot"><th colspan="2">記入した監督</th>'+ts.map(()=>'<td></td>').join('')+'</tr>';
-      pages.push({ html: pTitle(esc(ex.name)+'　出欠記録　<span class="big">'+r.grade+'年'+r.cls+'組</span>', '在籍 '+sts.length+'名　'+schoolSub())
-        + '<table class="p-table attend-sheet"><thead><tr><th rowspan="3" class="no">番号</th><th rowspan="3" class="name">氏名</th>'+h1+'</tr><tr>'+h2+'</tr><tr>'+h3+'</tr></thead><tbody>'+rows+foot+'</tbody></table>'
-        + '<p class="small">記入：欠席 → 欠　遅刻 → 遅(時刻)　別室で受けた → 別　保健室 → 保　早退 → 早。見出しの下の名前は、その時間の監督です。</p>' });
+      const roster = sts.map(s=>'<div class="rs"><span class="no">'+s.no+'</span>'+esc(s.name)+'</div>').join('');
+      pages.push({ grow:1.6, cls:'attend-page', html: pTitle(esc(ex.name)+'　出欠記録　<span class="big">'+r.grade+'年'+r.cls+'組</span>', esc(dayTitle(ex, di))+'　'+schoolSub())
+        + '<div class="att-top"><div class="enr">在籍 <b>'+sts.length+'</b> 名</div>'
+        + '<div class="morning"><div class="h">朝の欠席・遅刻(担任が書く)</div>'
+        + '<div class="line">欠席 ＿＿名：'+(absent.length ? '<b>'+absent.join('、')+'</b>(欠席予定)　' : '')+'</div>'
+        + '<div class="line">遅刻・早退：</div>'
+        + '<div class="line">別室で受験：'+(sep.length ? '<b>'+sep.join('、')+'</b>' : '')+'</div></div></div>'
+        + '<table class="p-table attend-sheet"><thead><tr><th class="lab">時間・教科</th><th class="pr">監督</th><th class="num">出席の人数</th><th class="who">欠席・遅刻の生徒(番号・名前)</th><th class="sign">確認</th></tr></thead><tbody>'+rows+'</tbody></table>'
+        + '<div class="att-roster"><div class="h">名簿('+sts.length+'名)</div><div class="grid4">'+roster+'</div></div>'
+        + '<p class="small">監督の先生へ：テストの始まりに人数を数え、在籍と合わないときは、いない生徒の番号・名前を書いてください。別室で受験する生徒は、出席の人数に入れません。</p>' });
     });
   });
   return pages;

@@ -75,7 +75,13 @@ table.poster-table{ width:100%; border-collapse:collapse; }
 table.poster-table td{ border-bottom:2px solid #444; padding:14px 10px; font-size:54px; vertical-align:middle; }
 table.poster-table td.lab{ width:24%; white-space:nowrap; }
 table.poster-table td.subj{ font-weight:bold; font-size:66px; }
-table.poster-table td.yobi{ font-size:40px; white-space:nowrap; text-align:right; padding-right:30px; }
+/* 教室の時程表: 教科名とテストの時刻を大きく、1時間目・予鈴・学活などは小さめに */
+.poster.room table.poster-table td.lab{ font-size:34px; width:auto; }
+.poster.room table.poster-table td.subj{ font-size:96px; }
+.poster.room table.poster-table td.time{ font-size:84px; }
+.poster.room table.poster-table td.yobi{ font-size:24px; white-space:nowrap; text-align:right; padding-right:16px; color:#333; }
+.poster.room table.poster-table tr.other td{ font-size:26px; }
+.poster.room table.poster-table tr.other td.time{ font-size:26px; }
 table.poster-table td.time{ text-align:right; white-space:nowrap; font-weight:bold; font-variant-numeric:tabular-nums; }
 table.poster-table tr.other td{ font-size:36px; color:#333; padding:8px 10px; }
 table.poster-table tr.other td.time{ font-weight:normal; }
@@ -103,12 +109,21 @@ table.poster-table tr.none td{ color:#888; font-size:30px; }
 .special-sheet tr.blank:first-of-type > *, .special-sheet tr:not(.blank) + tr.blank > *{ border-top:2px solid #000; }
 
 /* 出欠記録用紙 */
-.attend-sheet td{ height:22px; }
-.attend-sheet th.no{ width:40px; }
-.attend-sheet th.name, .attend-sheet td.name{ width:150px; text-align:left; }
-.attend-sheet td.pre-cell{ font-size:11px; color:#333; background:#f2f2f2; }
-.attend-sheet tr.foot th{ background:#f3f3f3; }
-.attend-sheet tr.foot td, .attend-sheet tr.foot th{ height:28px; border-top:2px solid #000; }
+.attend-page .att-top{ display:flex; gap:10px; margin:4px 0 8px; }
+.attend-page .enr{ border:2px solid #000; padding:6px 12px; font-size:20px; white-space:nowrap; align-self:flex-start; }
+.attend-page .enr b{ font-size:30px; }
+.attend-page .morning{ flex:1; border:1px solid #555; padding:4px 8px; font-size:13px; }
+.attend-page .morning .h, .attend-page .att-roster .h{ font-weight:bold; font-size:13px; }
+.attend-page .morning .line{ border-bottom:1px dotted #777; min-height:26px; padding-top:4px; }
+.attend-sheet th.lab{ width:17%; } .attend-sheet th.pr{ width:14%; } .attend-sheet th.num{ width:15%; } .attend-sheet th.sign{ width:9%; }
+.attend-sheet td{ height:88px; }
+.attend-sheet td.lab .sb{ font-size:18px; }
+.attend-sheet td.pr{ font-size:12px; }
+.attend-sheet td.num{ font-size:13px; line-height:1.9; }
+.attend-sheet td.num .blank{ display:inline-block; width:44px; border-bottom:1px solid #000; }
+.attend-page .att-roster{ margin-top:8px; border:1px solid #555; padding:4px 8px; }
+.attend-page .grid4{ display:grid; grid-template-columns:repeat(4, 1fr); column-gap:10px; font-size:12px; line-height:1.55; }
+.attend-page .rs .no{ display:inline-block; width:22px; text-align:right; margin-right:5px; color:#333; }
 
 /* 監督表(縦に先生、横に教科) */
 .proctor-sheet th.name{ width:120px; }
