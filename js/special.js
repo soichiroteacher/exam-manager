@@ -33,7 +33,7 @@ TABS.special = { render(){
     $('tab-special').innerHTML = html; document.querySelectorAll('#tab-special .edit-only').forEach(el=> el.hidden = !editing); return;
   }
   const roomOpts = sel => '<option value="">自分の教室</option>' + state.meta.rooms.map(r=>'<option value="'+esc(r.id)+'"'+(r.id===sel?' selected':'')+'>'+esc(r.name)+'</option>').join('');
-  html += '<div class="scroll-x"><table class="grid special"><thead><tr><th>学年・組・番号</th><th>氏名</th><th>受ける場所</th><th>時間延長</th><th>欠席の日</th><th>配慮の内容・メモ</th><th class="edit-only"></th></tr></thead><tbody>';
+  html += '<div class="scroll-x"><table class="grid special" data-stick="2"><thead><tr><th>学年・組・番号</th><th>氏名</th><th>受ける場所</th><th>時間延長</th><th>欠席の日</th><th>配慮の内容・メモ</th><th class="edit-only"></th></tr></thead><tbody>';
   list.forEach(({p, i, st})=>{
     const P = 'ex.special.'+i;
     html += '<tr><td class="nowrap">'+st.grade+'年'+st.cls+'組'+st.no+'番</td><td class="nowrap"><b>'+esc(st.name)+'</b></td>'

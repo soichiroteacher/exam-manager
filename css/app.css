@@ -57,7 +57,26 @@ main section h2{ font-size:17px; margin:0 0 8px; }
 .cols{ display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
 .cols > .side{ flex:1; min-width:320px; max-width:520px; border:1px solid var(--line); border-radius:8px; padding:12px 16px; background:#fafcff; }
 .cols > .side textarea{ width:100%; font-size:14px; }
-.scroll-x{ overflow-x:auto; max-width:100%; }
+.scroll-x{ overflow:auto; max-width:100%; max-height:calc(100vh - 150px); }
+/* 表の上の横スクロールバー(下のスクロールバーと連動。setupScrollTables) */
+.scroll-top{ overflow-x:auto; overflow-y:hidden; max-width:100%; height:16px; }
+.scroll-top > div{ height:1px; }
+/* 縦・横にスクロールしても見出しが隠れないように固定する(位置は setupScrollTables が入れる) */
+table.grid .stick-t{ position:sticky; z-index:2; }
+table.grid .stick-l{ position:sticky; z-index:1; background:#fff; }
+table.grid th.stick-l{ background:#f3f6f9; }
+table.grid thead th.stick-t{ background:#eef2f6; }
+table.grid thead th.stick-t.stick-l{ z-index:3; }
+/* 固定した見出しの線が消えないよう、枠の中の表は線を重ねない形(separate)にして、右と下にだけ線を引く */
+.scroll-x > table.grid{ border-collapse:separate; border-spacing:0; border-top:1px solid var(--line); border-left:1px solid var(--line); }
+.scroll-x > table.grid th, .scroll-x > table.grid td{ border-top-width:0; border-left-width:0; }
+.scroll-x > table.grid tr.sep > *, .scroll-x > table.grid tr.total > *{ border-top-width:2px; }
+.scroll-x > table.ranking .tot{ border-left-width:2px; }
+@media print{
+  .scroll-top{ display:none !important; }
+  .scroll-x{ max-height:none; overflow:visible; }
+  table.grid .stick-t, table.grid .stick-l{ position:static; }
+}
 .warn-box{ border:1px solid var(--warn); background:var(--warn-soft); border-radius:8px; padding:8px 14px; margin:0 0 12px; font-size:14px; max-height:190px; overflow:auto; }
 .warn-box ul{ margin:4px 0 0; padding-left:20px; }
 .ok-box{ border:1px solid var(--ok); color:var(--ok); background:#eef7ee; border-radius:8px; padding:6px 14px; margin:0 0 12px; font-size:14px; }

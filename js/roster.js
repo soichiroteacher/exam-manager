@@ -160,8 +160,8 @@ TABS.roster = { render(){
     + '</section>'
     + '<div class="toolbar"><span class="seg">'+gs.map(x=>'<button data-act="rosterGrade" data-g="'+x+'"'+(x===g?' class="active"':'')+'>'+x+'年</button>').join('')+'</span>'
     + '<span class="hint">在籍：'+counts+'</span></div>'
-    + '<table class="grid roster"><thead><tr><th>学籍番号</th><th>組</th><th>番号</th><th>氏名</th><th>ふりがな</th><th>在籍状況</th></tr></thead><tbody>'
-    + (rows || '<tr><td colspan="6" class="hint">'+g+'年の名簿はまだありません。上の「名簿のファイルを選んで読み込む」で読み込んでください。</td></tr>') + '</tbody></table>'
+    + '<div class="scroll-x"><table class="grid roster" data-stick="4"><thead><tr><th>学籍番号</th><th>組</th><th>番号</th><th>氏名</th><th>ふりがな</th><th>在籍状況</th></tr></thead><tbody>'
+    + (rows || '<tr><td colspan="6" class="hint">'+g+'年の名簿はまだありません。上の「名簿のファイルを選んで読み込む」で読み込んでください。</td></tr>') + '</tbody></table></div>'
     + '<p class="hint">転出・卒業などの生徒は、点数などの記録を残すため、名簿の下に灰色で残します。点数の入力・出欠記録用紙・個票の対象からは外します。</p>';
 }};
 ACTIONS.rosterGrade = el=>{ view.rosterGrade = +el.dataset.g; savePref(); renderAll(); };

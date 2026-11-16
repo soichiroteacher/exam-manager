@@ -270,11 +270,72 @@ function renderAll(){
   document.querySelectorAll('main > section').forEach(s=> s.hidden = !has || s.id !== 'tab-'+view.tab);
   document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===view.tab));
   renderTop();
+  // 表の枠の中のスクロール位置を覚えておき、描き直したあとに戻す(ます目を押すたびに表が先頭へ戻らないように)
+  const sec = $('tab-'+view.tab);
+  const scrolls = sec ? [...sec.querySelectorAll('.scroll-x')].map(b=>[b.scrollLeft, b.scrollTop]) : [];
   if(has && TABS[view.tab]) TABS[view.tab].render();
+  if(sec){
+    setupScrollTables(sec);
+    sec.querySelectorAll('.scroll-x').forEach((b, i)=>{ if(scrolls[i]){ b.scrollLeft = scrolls[i][0]; b.scrollTop = scrolls[i][1]; } });
+  }
   if(focusKey){
     const el = focusKey[0]==='#' ? $(focusKey.slice(1)) : document.querySelector('[data-path="'+CSS.escape(focusKey)+'"],[data-focus="'+CSS.escape(focusKey)+'"]');
     if(el && el !== f && !el.disabled){ try{ el.focus({ preventScroll:true }); }catch(e){} }
   }
+}
+//////////////////////// 横に長い表・縦に長い表 ////////////////////////
+// 全アプリ共通のルール: (1) 表の上にも、下と連動する横スクロールバーを付ける
+// (2) 縦にスクロールしても列の見出しが上に、行の見出し(名前など左端の列)が左に残るよう固定する。
+// 表は <div class="scroll-x"> に入れる。枠に高さの上限があり(css)、枠の中で縦にも横にもスクロールする
+// (sticky は一番近いスクロールする枠を基準に効くため)。左に固定する列の数は table の data-stick(なければ1)。
+function setupScrollTables(root){
+  root.querySelectorAll('.scroll-x').forEach(box=>{
+    const tbl = box.querySelector(':scope > table');
+    if(!tbl) return;
+    let top = box.previousElementSibling;
+    if(!top || !top.classList.contains('scroll-top')){
+      top = document.createElement('div');
+      top.className = 'scroll-top';
+      top.innerHTML = '<div></div>';
+      box.before(top);
+      // 互いの位置を合わせる(同じ値なら何もしないので、行ったり来たりしない)
+      top.addEventListener('scroll', ()=>{ if(Math.abs(box.scrollLeft - top.scrollLeft) > 1) box.scrollLeft = top.scrollLeft; });
+      box.addEventListener('scroll', ()=>{ if(Math.abs(top.scrollLeft - box.scrollLeft) > 1) top.scrollLeft = box.scrollLeft; });
+    }
+    const layout = ()=>{
+      top.firstChild.style.width = box.scrollWidth + 'px';
+      top.hidden = box.scrollWidth <= box.clientWidth + 1;
+      stickTable(tbl);
+    };
+    layout();
+    // 表の幅が変わったら(画面の幅を変えた・入力で列が広がったなど)合わせ直す
+    if(window.ResizeObserver){ const ro = new ResizeObserver(layout); ro.observe(box); ro.observe(tbl); }
+  });
+}
+// 見出しの行を上に、左の列を左に固定する位置を決める
+function stickTable(tbl){
+  const n = Number(tbl.dataset.stick || 1);
+  let y = 0;
+  [...(tbl.tHead ? tbl.tHead.rows : [])].forEach(r=>{
+    [...r.cells].forEach(c=>{ c.classList.add('stick-t'); c.style.top = y + 'px'; });
+    y += r.offsetHeight;
+  });
+  // 左の列の幅は、列の数がそろった最初の行から測る
+  const body = [...tbl.tBodies].flatMap(b=>[...b.rows]);
+  const ref = body.find(r=> r.cells.length >= n && [...r.cells].slice(0, n).every(c=>c.colSpan===1));
+  if(!ref || !n) return;
+  const lefts = []; let x = 0;
+  for(let i=0; i<n; i++){ lefts.push(x); x += ref.cells[i].offsetWidth; }
+  const mark = (r)=>{
+    let col = 0;
+    [...r.cells].forEach(c=>{
+      // 左の列に入る見出し(横に何列分かにまたがるものは、左端から始まるものだけ)を固定する
+      if(col < n && (c.colSpan===1 || col===0)){ c.classList.add('stick-l'); c.style.left = lefts[col] + 'px'; }
+      col += c.colSpan;
+    });
+  };
+  body.forEach(mark);
+  if(tbl.tHead && tbl.tHead.rows[0]) mark(tbl.tHead.rows[0]);   // 見出しの1行目の左(「名前」など。縦に2行分のもの)
 }
 function renderTop(){
   const has = !!state;

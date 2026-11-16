@@ -96,7 +96,7 @@ TABS.score = { render(){
   if(!sts.length){ $('tab-score').innerHTML = html + '<div class="banner">この学年の名簿がありません。「名簿」タブで入れてください。</div>'; return; }
   // 入力の進み具合(この教科・学年)
   const done = studentsOf(g).filter(s=>scoreOf(ex, s.id, sid)!==undefined).length, all = studentsOf(g).length;
-  html += '<div class="cols"><div><table class="grid score-table"><thead><tr><th>組</th><th>番号</th><th>氏名</th><th>'+esc(subjectName(sid))+'</th></tr></thead><tbody>';
+  html += '<div class="cols"><div class="scroll-x"><table class="grid score-table" data-stick="3"><thead><tr><th>組</th><th>番号</th><th>氏名</th><th>'+esc(subjectName(sid))+'</th></tr></thead><tbody>';
   let lastCls = null;
   sts.forEach((s, k)=>{
     const v = scoreOf(ex, s.id, sid);
@@ -234,7 +234,7 @@ TABS.stats = { render(){
   html += '<section><h2>合計と順位(先生向け)</h2><div class="toolbar">並べ方 <span class="seg">'
     + [['no','組・番号の順'],['r5','5教科の順位']].concat(sum.hasAll ? [['rA','全教科の順位']] : []).map(([k,l])=>'<button data-act="rankOrder" data-o="'+k+'"'+(k===order?' class="active"':'')+'>'+l+'</button>').join('')+'</span>'
     + '<span class="hint">順位の欄が「―」の人は、欠席か未入力の教科がある人です。</span></div>'
-    + '<div class="scroll-x"><table class="grid ranking"><thead><tr><th>組</th><th>番号</th><th>氏名</th>'+sum.subs.map(s=>'<th>'+esc(s.name)+'</th>').join('')
+    + '<div class="scroll-x"><table class="grid ranking" data-stick="3"><thead><tr><th>組</th><th>番号</th><th>氏名</th>'+sum.subs.map(s=>'<th>'+esc(s.name)+'</th>').join('')
     + (sum.core.length ? '<th class="tot">5教科</th><th>順位</th>' : '') + (sum.hasAll ? '<th class="tot">全教科</th><th>順位</th>' : '') + '</tr></thead><tbody>'
     + rows.map(r=>'<tr><td class="c">'+r.st.cls+'</td><td class="c">'+r.st.no+'</td><td class="nowrap">'+esc(r.st.name)+'</td>'
       + sum.subs.map(s=>{ const v = scoreOf(ex, r.st.id, s.id); return '<td class="c'+(v==='欠'?' absent':'')+'">'+(v===undefined?'':esc(v))+'</td>'; }).join('')
