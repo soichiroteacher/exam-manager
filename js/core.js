@@ -55,7 +55,6 @@ function emptyState(fy){
       rooms: [ { id:'r1', name:'別室1' } ],          // 別室(時間延長・別室受験の部屋)
       extendRate: CONFIG.defaultExtendRate,         // 時間延長の倍率の基本
       extendPlus: CONFIG.defaultExtendPlus,         // 「+〇分」で延長するときの分の基本
-      editPasswordHash: '',
       rosterSource: null,                           // 最後に読み込んだ名簿の元 { fileName, importedAt }(名簿は roster.js)
       savedAt: null, savedBy: '',
     },
@@ -86,6 +85,7 @@ function normalizeState(o){
   o.formatVersion = o.formatVersion || FORMAT_VERSION;
   o.app = 'exam-manager';
   o.meta = Object.assign(base.meta, o.meta);
+  delete o.meta.editPasswordHash;   // 編集のパスワードはやめた(全アプリ共通のルール)。古いファイルにあっても使わず、次の保存で消える
   o.meta.fiscalYear = Number(o.meta.fiscalYear) || currentFiscalYear();
   if(!Array.isArray(o.meta.grades) || !o.meta.grades.length) o.meta.grades = base.meta.grades;
   o.meta.grades = o.meta.grades.map((g,i)=>({ grade:i+1, classes:Math.max(1, Number(g.classes)||1) }));
@@ -347,13 +347,6 @@ $('chOk').addEventListener('click', ()=>{
   if(choiceCallback) choiceCallback(vals);
 });
 
-//////////////////////// 編集パスワード ////////////////////////
-async function sha256Hex(text){
-  if(!(window.crypto && crypto.subtle)) throw new Error('このブラウザではパスワードを使えません。Chrome か Edge で開いてください。');
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
 //////////////////////// バックアップと復元 ////////////////////////
 function stateToText(o){ return JSON.stringify(o, null, 2); }
 function downloadBlob(blob, name){
@@ -501,12 +494,10 @@ function editorName(){ try{ return localStorage.getItem('em.editorName') || ''; 
 //////////////////////// 編集する / 編集を終える ////////////////////////
 function openEditDialog(){
   $('eName').value = editorName();
-  $('ePw').value = '';
-  $('ePwRow').hidden = !state.meta.editPasswordHash;
   $('eErr').textContent = '';
   $('teacherNames').innerHTML = state.teachers.map(t=>'<option value="'+esc(t.name)+'">').join('');
   openOverlay('editOverlay');
-  setTimeout(()=> ($('eName').value ? (state.meta.editPasswordHash ? $('ePw') : $('eOk')) : $('eName')).focus(), 30);
+  setTimeout(()=> ($('eName').value ? $('eOk') : $('eName')).focus(), 30);
 }
 async function startEditing(){
   const name = $('eName').value.trim();
@@ -518,10 +509,6 @@ async function startEditing(){
       const { obj, modified } = await readHandle(fileHandle);
       state = obj; lastKnownModified = modified;
     }catch(e){ $('eErr').textContent = 'データファイルを読み直せませんでした。共有サーバーにつながっているか確かめてください。('+e.message+')'; return; }
-  }
-  if(state.meta.editPasswordHash){
-    let h; try{ h = await sha256Hex($('ePw').value); }catch(e){ $('eErr').textContent = e.message; return; }
-    if(h !== state.meta.editPasswordHash){ $('eErr').textContent = 'パスワードが違います。'; renderAll(); return; }
   }
   if(isLockFresh(state.editLock) && state.editLock.by !== name){
     if(!confirm('⚠ いま '+sensei(state.editLock.by)+'が編集中です。\n\n同時に編集すると、どちらかの入力が消えてしまいます。\nふつうは、相手が「編集を終える」まで待ってください。\n\nそれでも編集を始めますか？(相手がブラウザを閉じ忘れている場合など)')){ closeOverlay('editOverlay'); renderAll(); return; }
@@ -553,7 +540,7 @@ async function stopEditing(){
 $('btnEdit').addEventListener('click', ()=>{ if(!state) return; editing ? stopEditing() : openEditDialog(); });
 $('eOk').addEventListener('click', startEditing);
 $('eCancel').addEventListener('click', ()=>closeOverlay('editOverlay'));
-['eName','ePw'].forEach(id=> $(id).addEventListener('keydown', e=>{ if(e.key==='Enter') startEditing(); }));
+$('eName').addEventListener('keydown', e=>{ if(e.key==='Enter') startEditing(); });
 $('btnSave').addEventListener('click', doSave);
 $('btnOpen').addEventListener('click', doOpen);
 $('bnOpen').addEventListener('click', doOpen);

@@ -46,9 +46,6 @@ TABS.settings = { render(){
     + '<p class="hint">1行に1人。列の順は「名前、担当教科、所属学年、種別」(名前だけでもかまいません)。担当教科が2つ以上なら「国語・社会」のように「・」で区切ります。種別を空にすると「教員」になります。<br>今いる人のあとに追加します(同じ名前の人は、担当教科などを上書きします)。</p>'
     + '<textarea id="teacherPaste" rows="6" placeholder="山田 太郎&#9;国語&#9;1&#10;佐藤 花子&#9;数学・理科&#9;2&#10;鈴木 一郎&#9;&#9;&#9;サポーター"></textarea>'
     + '<div class="line"><button class="primary" data-act="pasteTeachers">取り込む</button></div></details></section>'
-    + '<section><h2>編集パスワード</h2><p class="hint">設定すると、「編集する」を押したときにパスワードを聞かれます。空のまま「設定」を押すと、パスワードなしになります。</p>'
-    + '<div class="row"><span class="k">今の状態</span><span>'+(m.editPasswordHash ? '設定してあります' : '設定していません')+'</span></div>'
-    + '<div class="row edit-only"><span class="k">新しいパスワード</span><input type="password" id="newPw" style="width:200px"><button data-act="setPw">設定</button></div></section>'
     + '<section><h2>バックアップと復元</h2><p class="hint">データファイルの控えを、日付の入った名前でダウンロードします。ファイルが壊れたり消えたりしたときは、「データを読み込む(復元)」で元に戻せます。控えにも生徒の名前が入っているので、校内の共有サーバーに保存してください。</p>'
     + '<div class="line"><button data-act="exportBackup">データを書き出す(バックアップ)</button> <button class="edit-act" data-act="importBackup">データを読み込む(復元)</button></div></section>'
     + '</div>';
@@ -131,17 +128,6 @@ ACTIONS.pasteTeachers = ()=>{
   $('teacherPaste').value = '';
   markDirty(); renderAll();
   alert(added+'人を追加、'+updated+'人を上書きしました。' + (unknown.size ? '\n\n次の教科は「教科」の一覧にないため、入れませんでした：'+[...unknown].join('、')+'\n(教科の名前を一覧と同じにしてください)' : ''));
-};
-ACTIONS.setPw = async ()=>{
-  const pw = $('newPw').value;
-  if(!pw){
-    if(!confirm('パスワードをなくします。だれでも「編集する」を押せるようになります。よろしいですか？')) return;
-    state.meta.editPasswordHash = '';
-  } else {
-    try{ state.meta.editPasswordHash = await sha256Hex(pw); }catch(e){ alert(e.message); return; }
-    alert('パスワードを設定しました。忘れないように控えておいてください。');
-  }
-  markDirty(); renderAll();
 };
 ACTIONS.exportBackup = exportBackup;
 ACTIONS.importBackup = importBackup;
