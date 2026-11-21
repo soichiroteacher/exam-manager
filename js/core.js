@@ -345,9 +345,9 @@ function renderTop(){
   $('btnEdit').textContent = editing ? '編集を終える' : '✏ 編集する';
   $('btnEdit').disabled = !has || viewOnly;   // 手で開いたファイルは見るだけ(files.js)
   $('btnLog').disabled = !has;
-  $('btnReload').hidden = !fileHandle || editing;
+  $('btnReload').hidden = !state || isSample || editing;
   $('btnSave').disabled = !editing || isSample;
-  $('fileName').textContent = fileHandle ? 'ファイル：' + fileHandle.name + (viewOnly ? '(見るだけ)' : '') : '';
+  $('fileName').textContent = (state && !isSample && currentName) ? 'ファイル：' + currentName + (viewOnly ? '(見るだけ)' : '') : '';
   renderFileNotice();   // 「見るだけで開いています」などの案内(files.js)
   document.querySelectorAll('.edit-only').forEach(el=> el.hidden = !editing);
   const w = $('lockWarning');
@@ -420,14 +420,15 @@ function downloadBlob(blob, name){
 function downloadText(text, name){ downloadBlob(new Blob([text], {type:'application/json'}), name); }
 function exportBackup(){
   if(!state || isSample) return;
-  downloadText(stateToText(state), backupName(state.meta.fiscalYear));
+  const n = backupName(state.meta.fiscalYear);
+  downloadText(toDataText(state, n), n);   // 自動バックアップと同じ形・同じ名前の .js
 }
 // 復元: 先に本体のバックアップを「バックアップ」フォルダに取ってから置き換える(共通ルール)
 function importBackup(){
   if(!editing || isSample) return;
   pickFileText(async (text, name)=>{
     let o;
-    try{ o = normalizeState(JSON.parse(text)); }catch(e){ alert('読み込めませんでした。\n'+e.message+'\n\n「データを書き出す(バックアップ)」で作ったファイルか、「バックアップ」フォルダの中のファイルを選んでください。'); return; }
+    try{ o = normalizeState(parseDataText(text)); }catch(e){ alert('読み込めませんでした。\n'+e.message+'\n\n「データを書き出す(バックアップ)」で作ったファイルか、「バックアップ」フォルダの中のファイルを選んでください。'); return; }
     if(o.meta.fiscalYear !== state.meta.fiscalYear && !confirm('「'+name+'」は '+o.meta.fiscalYear+'年度のデータです。今開いているのは '+state.meta.fiscalYear+'年度のファイルです。\nそれでも読み込みますか？')) return;
     if(!confirm('「'+name+'」の内容で、今のデータを置き換えます。よろしいですか？\n(置き換える前の今の内容は、データのフォルダの「'+CONFIG.backupFolder+'」フォルダに控えを取ります)')) return;
     if(fileHandle){
@@ -444,7 +445,7 @@ function importBackup(){
 // Chrome/Edge 以外でも読み込みだけはできるように、input type=file で読む
 function pickFileText(cb){
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.type = 'file'; inp.accept = '.js,.json';
   inp.onchange = async ()=>{ const f = inp.files[0]; if(f) cb(await f.text(), f.name); };
   inp.click();
 }
@@ -463,13 +464,13 @@ function isLockFresh(lock){
 }
 async function readHandle(handle){
   const f = await handle.getFile();
-  return { obj: normalizeState(JSON.parse(await f.text())), modified: f.lastModified };
+  return { obj: normalizeState(parseDataText(await f.text())), modified: f.lastModified };
 }
 // ファイルを開いて表示する。asView=true のときは見るだけ(編集できない)
 async function openHandle(handle, asView){
   const { obj, modified } = await readHandle(handle);
   state = obj; fileHandle = handle; isSample = false; editing = false; dirty = false;
-  viewOnly = !!asView; fileNotice = '';
+  viewOnly = !!asView; fileNotice = ''; currentName = handle.name;
   lastKnownModified = modified;
   setStatus('');
   renderAll();
@@ -480,7 +481,7 @@ async function writeFile(opts){
   const f = await fileHandle.getFile();
   if(lastKnownModified && f.lastModified !== lastKnownModified && !(opts && opts.force)){
     let other = null;
-    try{ other = JSON.parse(await f.text()); }catch(e){}
+    try{ other = parseDataText(await f.text()); }catch(e){}
     const by = other && other.meta && other.meta.savedBy;
     if(!confirm('このファイルは、あなたが開いたあとに'+(by ? sensei(by)+'が' : 'ほかの場所で')+'保存しています。\nこのまま保存すると、そちらの変更は消えてしまいます。\n\n保存しますか？(「キャンセル」を押すと保存しません。その場合は、入力した内容を紙などに控えてから、ページを開き直して入力し直してください)')){
       clearTimeout(autosaveTimer);
@@ -492,7 +493,7 @@ async function writeFile(opts){
   state.meta.savedBy = editorName();
   touchEditLog(state.meta.savedAt);
   const w = await fileHandle.createWritable();
-  await w.write(stateToText(state));
+  await w.write(toDataText(state, fileHandle.name));
   await w.close();
   lastKnownModified = (await fileHandle.getFile()).lastModified;
   dirty = false;
@@ -542,6 +543,7 @@ function openEditDialog(){
   if(viewOnly){ alert('このファイルは見るだけで開いています。編集はできません。\n\nこの内容に戻したいときは、上の「この内容に戻す」を押してください。'); return; }
   $('eName').value = editorName();
   $('eErr').textContent = '';
+  $('eFolderNote').hidden = !!(fileHandle || isSample || dataDir);   // <script src> で開いて、まだフォルダを選んでいないとき
   $('teacherNames').innerHTML = state.teachers.map(t=>'<option value="'+esc(t.name)+'">').join('');
   openOverlay('editOverlay');
   setTimeout(()=> ($('eName').value ? $('eOk') : $('eName')).focus(), 30);
@@ -551,6 +553,7 @@ async function startEditing(){
   if(!name){ $('eErr').textContent = 'お名前を入れてください。'; return; }
   try{ localStorage.setItem('em.editorName', name); }catch(e){}
   // ほかの先生が保存した最新の内容から編集を始める(古い画面のまま編集して、相手の変更を消してしまわないように)
+  if(!isSample && !(await ensureBodyHandle())) return;   // <script src> で開いたときは、ここでフォルダを選ぶ・許可する(files.js)
   if(fileHandle && !isSample){
     try{
       const { obj, modified } = await readHandle(fileHandle);
@@ -591,8 +594,8 @@ $('eCancel').addEventListener('click', ()=>closeOverlay('editOverlay'));
 $('eName').addEventListener('keydown', e=>{ if(e.key==='Enter') startEditing(); });
 $('btnSave').addEventListener('click', doSave);
 $('btnReload').addEventListener('click', async ()=>{
-  if(!fileHandle || editing) return;
-  try{ await openHandle(fileHandle); setStatus('最新の内容を読み込みました', 'saved'); }
+  if(!state || editing || isSample) return;
+  try{ await reloadCurrent(); setStatus('最新の内容を読み込みました', 'saved'); }
   catch(e){ alert('読み直せませんでした。\n'+e.message); }
 });
 // 編集中は、入力がなくても定期的に「編集中」の印を保存し直す(ほかの先生に編集中だと伝わり続けるように)

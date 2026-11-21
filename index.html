@@ -80,6 +80,7 @@
   <div class="modal" style="width:440px">
     <h2>編集を始めます</h2>
     <div class="row"><span class="k">お名前</span><span class="v"><input type="text" id="eName" list="teacherNames"><div class="hint">ほかの先生に「○○先生が編集中」と表示されます。</div></span></div>
+    <div class="hint" id="eFolderNote" hidden><b>このパソコンではじめて編集するときは、「編集を始める」を押すと、フォルダを選ぶ画面が出ます。</b>このアプリ(index.html)とデータのファイルがある、共有サーバーのフォルダを選んでください(パソコン・ブラウザごとに一度)。</div>
     <div class="err" id="eErr"></div>
     <div class="foot"><span class="spacer"></span><button id="eCancel">やめる</button><button class="primary" id="eOk">編集を始める</button></div>
   </div>
@@ -94,7 +95,7 @@
     <div class="row"><span class="k">年度</span><span class="v"><input type="number" id="nYear" style="width:100px"> 年度</span></div>
     <div class="row"><span class="k">学校名</span><span class="v"><input type="text" id="nSchool" placeholder="例：〇〇中学校"></span></div>
     <div class="row"><span class="k">作る場所</span><span class="v">データのフォルダ「<span id="nFolder"></span>」</span></div>
-    <div class="hint">「定期テスト運営_(年度)年度.json」の名前で作ります。<b>生徒の名前が入るので、データのフォルダはインターネットやクラウドのフォルダにしないでください。</b></div>
+    <div class="hint">「定期テスト運営_(年度)年度.js」の名前で作ります。<b>生徒の名前が入るので、データのフォルダはインターネットやクラウドのフォルダにしないでください。</b></div>
     <div class="err" id="nErr"></div>
     <div class="foot"><span class="spacer"></span><button id="nCancel">やめる</button><button class="primary" id="nOk">作る</button></div>
   </div>

@@ -98,7 +98,7 @@ function rosterPlanHtml(plan, skipped){
 }
 async function importRosterFrom(file, note){
   let obj;
-  try{ obj = JSON.parse(await file.text()); }catch(e){ alert('ファイルを読めませんでした。'+CONFIG.rosterAppName+'アプリのデータファイル(「'+CONFIG.rosterAppName+'_YYYY年度.json」)を選んでください。\n'+e.message); return; }
+  try{ obj = parseDataText(await file.text()); }catch(e){ alert('ファイルを読めませんでした。'+CONFIG.rosterAppName+'アプリのデータファイル(「'+CONFIG.rosterAppName+'_YYYY年度.js」)を選んでください。\n'+e.message); return; }
   let res;
   try{ res = readAccountManagerRoster(obj); }catch(e){ alert(e.message); return; }
   if(!res.list.some(n=>n.status==='在籍')){ alert('在籍している生徒が見つかりませんでした。\n'+(res.skipped.length ? '学籍番号やクラスが入っているか、'+CONFIG.rosterAppName+'アプリで確かめてください。' : '')); return; }
@@ -116,9 +116,9 @@ async function importRosterFrom(file, note){
 // 共通ルールは「一番新しい年度」。ただし、このファイルと同じ年度の名簿があればそちらを使う
 // (年度末に相手が新しい年度のファイルを作ったあとでも、今の年度のファイルに進級後の名簿を入れてしまわないように)。
 async function readRosterFromDir(dir){
-  const files = await findYearFiles(dir, CONFIG.rosterAppName);
+  const files = await findYearFiles(dir, CONFIG.rosterAppName, ['js','json']);   // 以前の .json も読む
   if(!files.length){
-    alert('名簿のフォルダ「'+dir.name+'」に、「'+CONFIG.rosterAppName+'_YYYY年度.json」の名前のファイルが見つかりませんでした。\n\n'+CONFIG.rosterAppName+'アプリのデータのフォルダを選んでいるか、そのアプリで新しい名前で保存し直してあるか確かめてください。\n(「名簿のファイルを選んで読み込む」で、ファイルを直接選ぶこともできます)');
+    alert('名簿のフォルダ「'+dir.name+'」に、「'+CONFIG.rosterAppName+'_YYYY年度.js」の名前のファイルが見つかりませんでした。\n\n'+CONFIG.rosterAppName+'アプリのデータのフォルダを選んでいるか、そのアプリで新しい名前で保存し直してあるか確かめてください。\n(「名簿のファイルを選んで読み込む」で、ファイルを直接選ぶこともできます)');
     return;
   }
   const fy = state.meta.fiscalYear;
@@ -141,18 +141,36 @@ ACTIONS.importRoster = async ()=>{
   try{
     if(supportsFSA){
       let startIn; try{ startIn = (await idbGet('rosterDir')) || undefined; }catch(e){}
-      const [h] = await window.showOpenFilePicker({ id:'em-rosterfile', types:[{ description:CONFIG.rosterAppName+'アプリの名簿', accept:{'application/json':['.json','.dat']} }], ...(startIn?{startIn}:{}) });
+      const [h] = await window.showOpenFilePicker({ id:'em-rosterfile', types:[{ description:CONFIG.rosterAppName+'アプリの名簿', accept:{'text/javascript':['.js'], 'application/json':['.json','.dat']} }], ...(startIn?{startIn}:{}) });
       await importRosterFrom(await h.getFile());
     } else {
-      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,.dat';
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.js,.json,.dat';
       inp.onchange = ()=>{ if(inp.files[0]) importRosterFrom(inp.files[0]); };
       inp.click();
     }
   }catch(e){ if(e.name!=='AbortError') alert('開けませんでした。\n'+e.message); }
 };
-// 覚えている名簿のフォルダから読み直す(ファイルを選ばなくてよい)。まだ選んでいなければ、フォルダを選んでもらう
+// 名簿を読み直す。まず <script src="../account-manager/名簿・アカウント管理_YYYY年度.js"> で読む(共有サーバーでも apps/ と同じ並びに置くので、
+// フォルダを選ばずに読める)。このデータファイルと同じ年度 → 来年度・今年度・前年度 の順に試す。
+// 読めないとき(並びが違う・相手がまだ .js にしていない)は、覚えている名簿のフォルダから読む。まだ選んでいなければ、フォルダを選んでもらう。
+async function readRosterByScript(){
+  const fy = state.meta.fiscalYear, cur = currentFiscalYear();
+  const years = [fy, cur+1, cur, cur-1].filter((y,i,a)=>a.indexOf(y)===i);
+  const found = [];
+  for(const y of years){
+    const name = CONFIG.rosterAppName+'_'+y+'年度.js';
+    const o = await loadScriptData(CONFIG.rosterDir+'/'+name);
+    if(o){ found.push({ y, name, o }); if(y===fy) break; }
+  }
+  if(!found.length) return false;
+  const same = found.find(f=>f.y===fy), pick = same || found.sort((a,b)=>b.y-a.y)[0];
+  const note = same ? '' : '⚠ '+fy+'年度の名簿のファイルがないので、'+pick.y+'年度のもの(一番新しい年度)を読み込みます。このデータファイルは '+fy+'年度のものです。';
+  await importRosterFrom(new File([JSON.stringify(pick.o)], pick.name), note);
+  return true;
+}
 ACTIONS.reloadRoster = async ()=>{
   if(!editing) return;
+  try{ if(await readRosterByScript()) return; }catch(e){}
   let dir; try{ dir = await idbGet('rosterDir'); }catch(e){}
   if(!dir){ ACTIONS.chooseRosterDir(); return; }
   try{
@@ -177,9 +195,9 @@ TABS.roster = { render(){
   });
   const rn = esc(CONFIG.rosterAppName);
   $('tab-roster').innerHTML = '<section class="roster-src"><h2>名簿の元('+rn+'アプリ)</h2>'
-    + '<p>生徒の名簿は、<b>'+rn+'アプリの名簿</b>(そのアプリのデータのフォルダの「'+rn+'_'+state.meta.fiscalYear+'年度.json」)から読み込みます。転入・転出・クラス替えなど名簿を直すときは、<b>'+rn+'アプリで直してから</b>、ここで「名簿を読み直す」を押してください。生徒は学籍番号で見分けるので、組や番号が変わっても点数や配慮の記録はずれません。</p>'
+    + '<p>生徒の名簿は、<b>'+rn+'アプリの名簿</b>(そのアプリのフォルダの「'+rn+'_'+state.meta.fiscalYear+'年度.js」)から読み込みます。転入・転出・クラス替えなど名簿を直すときは、<b>'+rn+'アプリで直してから</b>、ここで「名簿を読み直す」を押してください。生徒は学籍番号で見分けるので、組や番号が変わっても点数や配慮の記録はずれません。</p>'
     + '<p class="hint">最後に読み込んだ名簿：'+(src ? esc(src.fileName)+'('+new Date(src.importedAt).toLocaleString('ja-JP')+')' : 'まだ読み込んでいません')
-    + '<br>はじめて読み込むとき(このパソコン・ブラウザで一度)は、'+rn+'アプリのデータのフォルダを選びます。この年度の名簿のファイルがなければ、一番新しい年度のものを読みます。</p>'
+    + '<br>共有サーバーで、このアプリと'+rn+'アプリのフォルダが並んでいれば、そのまま読めます。読めないときは、'+rn+'アプリのフォルダを選びます(このパソコン・ブラウザで一度)。この年度の名簿のファイルがなければ、一番新しい年度のものを読みます。</p>'
     + (editing ? '<div class="line"><button class="primary" data-act="reloadRoster">名簿を読み直す</button><button data-act="chooseRosterDir">名簿のフォルダを選ぶ</button><button data-act="importRoster">名簿のファイルを選んで読み込む</button></div>'
       : '<p class="hint warn-text">名簿を読み込むには、上の「✏ 編集する」を押してください。</p>')
     + (noLink ? '<p class="warn-text">学籍番号がまだ付いていない生徒が '+noLink+'人います(以前に貼り付けた名簿)。名簿を読み込むと、学年・組・番号・氏名が同じ生徒に学籍番号を付けてつなぎます。</p>' : '')

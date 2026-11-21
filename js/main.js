@@ -10,7 +10,7 @@ document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key==='s'){ e.preventDefault(); doSave(); }
 });
 $('bnSample').addEventListener('click', ()=>{
-  state = makeSample(); fileHandle = null; isSample = true; editing = false; dirty = false; viewOnly = false; fileNotice = '';
+  state = makeSample(); fileHandle = null; isSample = true; editing = false; dirty = false; viewOnly = false; fileNotice = ''; currentName = '';
   view.examId = state.exams[state.exams.length-1].id;   // いちばん新しい回を開く
   renderAll();
   setStatus('見本を表示しています(「編集する」で入力も試せます。保存はされません)', 'saved');
