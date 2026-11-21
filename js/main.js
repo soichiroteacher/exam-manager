@@ -10,7 +10,7 @@ document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key==='s'){ e.preventDefault(); doSave(); }
 });
 $('bnSample').addEventListener('click', ()=>{
-  state = makeSample(); fileHandle = null; isSample = true; editing = false; dirty = false;
+  state = makeSample(); fileHandle = null; isSample = true; editing = false; dirty = false; viewOnly = false; fileNotice = '';
   view.examId = state.exams[state.exams.length-1].id;   // いちばん新しい回を開く
   renderAll();
   setStatus('見本を表示しています(「編集する」で入力も試せます。保存はされません)', 'saved');
@@ -18,26 +18,5 @@ $('bnSample').addEventListener('click', ()=>{
 
 $('otherLabels').innerHTML = CONFIG.otherLabels.map(l=>'<option value="'+esc(l)+'">').join('');
 
-async function boot(){
-  renderAll();
-  if(!supportsFSA){
-    $('bnLast').hidden = false;
-    $('bnLast').innerHTML = '<b style="color:var(--warn)">このブラウザでは、データファイルへの保存ができません。Chrome か Edge で開いてください。</b>';
-    return;
-  }
-  // 前回のファイルがあれば、すぐ開けるようにする(ブラウザの決まりで、起動のたびに1回だけ許可のボタンが要る)
-  let h; try{ h = await idbGet('lastFile'); }catch(e){}
-  if(!h) return;
-  try{
-    if(await h.queryPermission({mode:'readwrite'}) === 'granted'){ await openHandle(h); return; }
-  }catch(e){}
-  $('bnLast').hidden = false;
-  $('bnLast').innerHTML = '前回のファイル「'+esc(h.name)+'」を開くには、ここを押してください → <button class="primary" id="bnLastBtn">前回のファイルを開く</button>';
-  $('bnLastBtn').addEventListener('click', async ()=>{
-    try{
-      if(await h.requestPermission({mode:'readwrite'}) !== 'granted') return;
-      await openHandle(h);
-    }catch(e){ alert('開けませんでした。ファイルが移動・削除されていないか確かめてください。\n'+e.message); }
-  });
-}
-boot().then(maybeAutoTour);   // はじめて開いたときは、画面の案内を出す(tour.js)
+// 起動: データのフォルダから今の年度のファイルを開く(files.js)。はじめて開いたときは、画面の案内を出す(tour.js)
+bootFiles().then(maybeAutoTour);

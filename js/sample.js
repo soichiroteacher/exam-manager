@@ -13,7 +13,7 @@ function makeSample(){
   const mei = ['あおい','さくら','はると','ゆい','そうた','ひなた','りく','めい','ゆうと','こはる','いつき','みお','かいと','ことね','れん','ゆな','たくみ','あかり','しょう','まな','だいち','ひより','けんた','りこ','ゆうき'];
   let seed = 7; const rnd = n => { seed = (seed*9301+49297) % 233280; return Math.floor(seed/233280*n); };
   s.meta.grades.forEach(g=>{ for(let c=1;c<=g.classes;c++){ for(let no=1;no<=28;no++){
-    // 学籍番号(架空): 入学年度 + 3けたの通し番号。名簿の元(アカウント管理アプリ)から読み込んだときと同じ形
+    // 学籍番号(架空): 入学年度 + 3けたの通し番号。名簿の元(名簿・アカウント管理アプリ)から読み込んだときと同じ形
     const i = rnd(sei.length), j = rnd(mei.length);
     s.students.push({ id:'st'+g.grade+'_'+c+'_'+no, studentNo:String(fy-g.grade+1)+String((c-1)*28+no).padStart(3,'0'), grade:g.grade, cls:c, no, name:sei[i]+' '+mei[j], kana:seiKana[i]+' '+mei[j], status:'在籍', statusDate:'' });
   } } });

@@ -54,6 +54,8 @@ main section h2{ font-size:17px; margin:0 0 8px; }
 .seg button.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
 .banner{ padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--bg-soft); margin:10px 0; }
 .banner p{ margin:0 0 10px; }
+.file-notice{ background:#fff7e0; border-color:#e0b84a; padding:12px 16px; }
+.file-notice .line{ margin-top:4px; }
 .cols{ display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
 .cols > .side{ flex:1; min-width:320px; max-width:520px; border:1px solid var(--line); border-radius:8px; padding:12px 16px; background:#fafcff; }
 .cols > .side textarea{ width:100%; font-size:14px; }

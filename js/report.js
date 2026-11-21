@@ -153,6 +153,6 @@ function exportScoresXlsx(){
   if(!sheets.length){ alert('書き出す点数がありません。「名簿」と「点数」を確かめてください。'); return; }
   sheets.push({ name:'平均点', rows:avgRows, headerRows:1, colWidths:[6,16,6,9,6,6,9].concat(avgRows[0].slice(7).map(()=>7)) });
   if(!confirm('成績一覧を Excel に書き出します。\n生徒の名前と点数が入ったファイルです。校内の共有サーバーに保存し、インターネットやクラウドのフォルダには置かないでください。')) return;
-  downloadXlsx('定期テスト_成績一覧_'+ex.name.replace(/[\\\/:*?"<>|]/g,'')+'_'+todayYmd()+'.xlsx', sheets);
+  downloadXlsx(CONFIG.appName+'_成績一覧_'+ex.name.replace(/[\\\/:*?"<>|]/g,'')+'_'+todayYmd()+'.xlsx', sheets);
 }
 ACTIONS.exportXlsx = exportScoresXlsx;

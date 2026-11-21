@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>定期テスト</title>
+<title>定期テスト運営</title>
 <!--
-  定期テスト(試験監督・時程表・配慮の必要な生徒・注意事項・出欠記録)
+  定期テスト運営(試験監督・時程表・配慮の必要な生徒・注意事項・出欠記録)
   - このフォルダ(index.html・css・js)をまとめて置き、index.html をダブルクリックで開けば動く。外部ライブラリは使っていない。
   - Chrome / Edge 専用(データファイルへの直接保存に File System Access API を使うため)。
   - 作りの説明は HANDOFF.md、使い方は README.md を参照。
@@ -17,7 +17,7 @@
 <body>
 
 <header class="top">
-  <h1>定期テスト</h1>
+  <h1>定期テスト運営</h1>
   <span id="schoolTitle"></span>
   <label id="examPick" hidden>テストの回：<select id="examSelect"></select></label>
   <span class="spacer"></span>
@@ -28,7 +28,7 @@
   <button id="btnLog" title="誰が・いつ編集したかを見ます">編集の記録</button>
   <button id="btnReload" title="ほかの先生が保存した最新の内容を読み直します">↻ 最新にする</button>
   <button id="btnSave" disabled>保存</button>
-  <button id="btnOpen">開く</button>
+  <button id="btnOpen" title="バックアップや前の年度のファイルを選んで、見るだけで開きます">開く</button>
   <button id="btnNew">新規作成</button>
   <span id="status"></span>
   <span id="fileName"></span>
@@ -48,16 +48,19 @@
 </nav>
 
 <main>
+  <!-- 「見るだけで開いています」・古い名前のファイルの移し替え・新しい年度の案内(files.js) -->
+  <div id="fileNotice" class="banner file-notice" hidden></div>
+  <!-- はじめの画面(データのフォルダを選ぶ・許可する・新しく作る。中の文は files.js の renderStart) -->
   <div id="startBanner" class="banner" hidden>
-    <p><b>データファイルを開いてください。</b>データファイル(.json)は、校務共有サーバーのこのアプリと同じフォルダに置いてあります。</p>
-    <p class="hint">年度のはじめに1回だけ「新規作成」でデータファイルを作ります(1年分・全学年で1つ)。どんなアプリか試すだけなら「見本を表示する」を押してください(見本は保存されません)。</p>
+    <div id="bnMsg"></div>
     <div class="line">
-      <button class="primary" id="bnOpen">データファイルを開く</button>
-      <button id="bnNew">新規作成</button>
+      <button class="primary" id="bnPerm" hidden>データのフォルダを開く</button>
+      <button id="bnFolder">データのフォルダを選ぶ</button>
+      <button id="bnNew" hidden>新しく作る</button>
+      <button id="bnOpen">ファイルを選んで開く(見るだけ)</button>
       <button id="bnSample">見本を表示する</button>
       <button id="bnTour" class="tour-btn">はじめての方へ(画面の案内)</button>
     </div>
-    <div id="bnLast" style="margin-top:12px" hidden></div>
   </div>
   <!-- 各タブの中身は js で組み立てる -->
   <section id="tab-settings" hidden></section>
@@ -90,7 +93,8 @@
     <h2>新しいデータファイルを作る</h2>
     <div class="row"><span class="k">年度</span><span class="v"><input type="number" id="nYear" style="width:100px"> 年度</span></div>
     <div class="row"><span class="k">学校名</span><span class="v"><input type="text" id="nSchool" placeholder="例：〇〇中学校"></span></div>
-    <div class="hint">「作る」を押すと、保存する場所を聞かれます。校務共有サーバーの、このアプリと同じフォルダを選んでください。<b>生徒の名前が入るので、インターネットやクラウドのフォルダには保存しないでください。</b></div>
+    <div class="row"><span class="k">作る場所</span><span class="v">データのフォルダ「<span id="nFolder"></span>」</span></div>
+    <div class="hint">「定期テスト運営_(年度)年度.json」の名前で作ります。<b>生徒の名前が入るので、データのフォルダはインターネットやクラウドのフォルダにしないでください。</b></div>
     <div class="err" id="nErr"></div>
     <div class="foot"><span class="spacer"></span><button id="nCancel">やめる</button><button class="primary" id="nOk">作る</button></div>
   </div>
@@ -132,6 +136,7 @@
 
 <script src="js/config.js"></script>
 <script src="js/core.js"></script>
+<script src="js/files.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/exam.js"></script>
 <script src="js/proctor.js"></script>

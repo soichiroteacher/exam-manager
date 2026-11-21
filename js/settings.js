@@ -23,7 +23,7 @@ TABS.settings = { render(){
     + (editing ? '' : '<p class="hint">設定を変えるには、上の「✏ 編集する」を押してください。</p>')
     + '<section><h2>学校と年度</h2>'
     + '<div class="row"><span class="k">学校名</span><input type="text" style="width:260px" data-path="meta.schoolName" value="'+esc(m.schoolName)+'"'+d+'></div>'
-    + '<div class="row"><span class="k">年度</span><input type="number" style="width:100px" data-path="meta.fiscalYear" data-type="num" value="'+m.fiscalYear+'"'+d+'> 年度</div></section>'
+    + '<div class="row"><span class="k">年度</span><b>'+m.fiscalYear+' 年度</b><span class="hint">年度ごとにデータファイルを分けています(新しい年度のファイルは、年度が替わると上に出る「○年度のファイルを作る」で作ります)。</span></div></section>'
     + '<section><h2>学年とクラス</h2>'
     + '<div class="row"><span class="k">学年の数</span><input type="number" min="1" max="6" style="width:70px" id="setGradeCount" value="'+m.grades.length+'"'+d+'></div>'
     + '<div class="row"><span class="k">クラスの数</span><span>'+gradeRows+'</span></div></section>'
@@ -46,10 +46,12 @@ TABS.settings = { render(){
     + '<p class="hint">1行に1人。列の順は「名前、担当教科、所属学年、種別」(名前だけでもかまいません)。担当教科が2つ以上なら「国語・社会」のように「・」で区切ります。種別を空にすると「教員」になります。<br>今いる人のあとに追加します(同じ名前の人は、担当教科などを上書きします)。</p>'
     + '<textarea id="teacherPaste" rows="6" placeholder="山田 太郎&#9;国語&#9;1&#10;佐藤 花子&#9;数学・理科&#9;2&#10;鈴木 一郎&#9;&#9;&#9;サポーター"></textarea>'
     + '<div class="line"><button class="primary" data-act="pasteTeachers">取り込む</button></div></details></section>'
-    + '<section><h2>バックアップと復元</h2><p class="hint">データファイルの控えを、日付の入った名前でダウンロードします。ファイルが壊れたり消えたりしたときは、「データを読み込む(復元)」で元に戻せます。控えにも生徒の名前が入っているので、校内の共有サーバーに保存してください。</p>'
+    + '<section><h2>データのフォルダと自動バックアップ</h2>'+fileInfoHtml()+'</section>'
+    + '<section><h2>バックアップと復元(手で行うとき)</h2><p class="hint">「データを書き出す(バックアップ)」は、今の内容の控えを、日付の入った名前でダウンロードします(自動バックアップとは別に、手元に控えたいとき)。「データを読み込む(復元)」は、控えのファイルの内容で今のデータを置き換えます(置き換える前に、今の内容を「'+esc(CONFIG.backupFolder)+'」フォルダに控えます)。控えにも生徒の名前が入っているので、校内の共有サーバーに保存してください。</p>'
     + '<div class="line"><button data-act="exportBackup">データを書き出す(バックアップ)</button> <button class="edit-act" data-act="importBackup">データを読み込む(復元)</button></div></section>'
     + '</div>';
   document.querySelectorAll('#tab-settings .edit-only').forEach(el=> el.hidden = !editing);
+  fillBackupCount();   // バックアップの数は、フォルダの中を見てからあとで入れる(files.js)
 }};
 function refreshExams(){ state.exams.forEach(normalizeExam); }
 document.addEventListener('change', e=>{
